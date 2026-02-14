@@ -20,9 +20,13 @@ def test_run_shows_inspect_and_live_skill(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setattr(inspect_cmd.store, "list_skills", lambda scope="auto": metas)
     monkeypatch.setattr(inspect_cmd.store, "has_flavor", lambda _n, scope="auto": True)
     monkeypatch.setattr(
-        inspect_cmd.ui, "show_skill_inspect", lambda meta, flavored=False: shown.append(str(meta["name"]))
+        inspect_cmd.ui,
+        "show_skill_inspect",
+        lambda meta, flavored=False: shown.append(str(meta["name"])),
     )
-    monkeypatch.setattr(inspect_cmd.store, "live_skill_text", lambda _n, scope="auto": "# hello-chef\n")
+    monkeypatch.setattr(
+        inspect_cmd.store, "live_skill_text", lambda _n, scope="auto": "# hello-chef\n"
+    )
     monkeypatch.setattr(
         inspect_cmd.ui,
         "show_skill_md",
@@ -63,9 +67,13 @@ def test_run_without_name_prompts_and_inspects_selected(monkeypatch: pytest.Monk
     monkeypatch.setattr(inspect_cmd.ui, "choose_optional", lambda _prompt, _choices: "hello-chef")
     monkeypatch.setattr(inspect_cmd.store, "has_flavor", lambda _n, scope="auto": False)
     monkeypatch.setattr(
-        inspect_cmd.ui, "show_skill_inspect", lambda meta, flavored=False: shown.append(str(meta["name"]))
+        inspect_cmd.ui,
+        "show_skill_inspect",
+        lambda meta, flavored=False: shown.append(str(meta["name"])),
     )
-    monkeypatch.setattr(inspect_cmd.store, "live_skill_text", lambda _n, scope="auto": "# hello-chef\n")
+    monkeypatch.setattr(
+        inspect_cmd.store, "live_skill_text", lambda _n, scope="auto": "# hello-chef\n"
+    )
     monkeypatch.setattr(
         inspect_cmd.ui,
         "show_skill_md",
@@ -138,7 +146,9 @@ def test_run_menu_actions_open_tools(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(inspect_cmd.store, "has_flavor", lambda _n, scope="auto": False)
     monkeypatch.setattr(inspect_cmd.ui, "choose_optional", lambda _prompt, _choices: next(actions))
     monkeypatch.setattr(inspect_cmd.ui, "show_skill_inspect", lambda _meta, flavored=False: None)
-    monkeypatch.setattr(inspect_cmd.store, "live_skill_text", lambda _n, scope="auto": "# hello-chef\n")
+    monkeypatch.setattr(
+        inspect_cmd.store, "live_skill_text", lambda _n, scope="auto": "# hello-chef\n"
+    )
     monkeypatch.setattr(inspect_cmd.ui, "show_skill_md", lambda text, title="SKILL.md": None)
     monkeypatch.setattr(inspect_cmd, "open_in_file_manager", lambda p: opened.append(str(p)))
     monkeypatch.setattr(

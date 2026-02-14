@@ -32,12 +32,17 @@ def _load_from_path(path: Path) -> dict[str, Any]:
     return tomllib.loads(path.read_text())
 
 
-def load(scope: str = "global", cwd: Path | None = None, cfg: dict[str, Any] | None = None) -> dict[str, Any]:
+def load(
+    scope: str = "global", cwd: Path | None = None, cfg: dict[str, Any] | None = None
+) -> dict[str, Any]:
     return _load_from_path(config_file_path(scope=scope, cwd=cwd, cfg=cfg))
 
 
 def save(
-    cfg: dict[str, Any], scope: str = "global", cwd: Path | None = None, base_cfg: dict[str, Any] | None = None
+    cfg: dict[str, Any],
+    scope: str = "global",
+    cwd: Path | None = None,
+    base_cfg: dict[str, Any] | None = None,
 ) -> None:
     path = config_file_path(scope=scope, cwd=cwd, cfg=base_cfg)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -53,7 +58,9 @@ def platform_skill_dir(platform: str) -> Path:
     return PLATFORMS[platform]
 
 
-def resolve_scope(scope: str = "auto", cwd: Path | None = None, cfg: dict[str, Any] | None = None) -> str:
+def resolve_scope(
+    scope: str = "auto", cwd: Path | None = None, cfg: dict[str, Any] | None = None
+) -> str:
     if scope in {"global", "project"}:
         return scope
     project_home = (cwd or Path.cwd()) / ".skillchef"
@@ -66,23 +73,31 @@ def resolve_scope(scope: str = "auto", cwd: Path | None = None, cfg: dict[str, A
     return "global"
 
 
-def scope_home(scope: str = "auto", cwd: Path | None = None, cfg: dict[str, Any] | None = None) -> Path:
+def scope_home(
+    scope: str = "auto", cwd: Path | None = None, cfg: dict[str, Any] | None = None
+) -> Path:
     resolved = resolve_scope(scope=scope, cwd=cwd, cfg=cfg)
     if resolved == "project":
         return (cwd or Path.cwd()) / ".skillchef"
     return SKILLCHEF_HOME
 
 
-def config_file_path(scope: str = "auto", cwd: Path | None = None, cfg: dict[str, Any] | None = None) -> Path:
+def config_file_path(
+    scope: str = "auto", cwd: Path | None = None, cfg: dict[str, Any] | None = None
+) -> Path:
     return scope_home(scope=scope, cwd=cwd, cfg=cfg) / "config.toml"
 
 
-def store_dir(scope: str = "auto", cwd: Path | None = None, cfg: dict[str, Any] | None = None) -> Path:
+def store_dir(
+    scope: str = "auto", cwd: Path | None = None, cfg: dict[str, Any] | None = None
+) -> Path:
     home = scope_home(scope=scope, cwd=cwd, cfg=cfg)
     return home / "store"
 
 
-def ensure_store(scope: str = "auto", cwd: Path | None = None, cfg: dict[str, Any] | None = None) -> Path:
+def ensure_store(
+    scope: str = "auto", cwd: Path | None = None, cfg: dict[str, Any] | None = None
+) -> Path:
     out = store_dir(scope=scope, cwd=cwd, cfg=cfg)
     out.mkdir(parents=True, exist_ok=True)
     return out

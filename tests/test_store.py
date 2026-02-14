@@ -139,8 +139,12 @@ def test_scope_isolation_between_global_and_project(
     project.mkdir()
     monkeypatch.chdir(project)
 
-    store.cook("hello-chef", fetched, "https://example.com/global", "http", ["codex"], scope="global")
-    store.cook("hello-chef", fetched, "https://example.com/project", "http", ["codex"], scope="project")
+    store.cook(
+        "hello-chef", fetched, "https://example.com/global", "http", ["codex"], scope="global"
+    )
+    store.cook(
+        "hello-chef", fetched, "https://example.com/project", "http", ["codex"], scope="project"
+    )
 
     global_meta = store.load_meta("hello-chef", scope="global")
     project_meta = store.load_meta("hello-chef", scope="project")

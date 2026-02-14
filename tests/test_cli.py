@@ -39,7 +39,9 @@ def test_cli_cook_dispatches_force_overwrite(monkeypatch) -> None:
         ),
     )
 
-    result = CliRunner().invoke(cli.main, ["cook", "--force-overwrite", "https://example.com/skill"])
+    result = CliRunner().invoke(
+        cli.main, ["cook", "--force-overwrite", "https://example.com/skill"]
+    )
 
     assert result.exit_code == 0
     assert captured["source"] == "https://example.com/skill"

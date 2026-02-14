@@ -88,7 +88,9 @@ def _action_loop(meta: dict[str, Any], scope: str = "auto") -> None:
 
         if action == "see full skill?":
             try:
-                ui.show_skill_md(store.live_skill_text(name, scope=scope), title=f"{name}/live/SKILL.md")
+                ui.show_skill_md(
+                    store.live_skill_text(name, scope=scope), title=f"{name}/live/SKILL.md"
+                )
             except FileNotFoundError:
                 ui.warn(f"Could not find live SKILL.md for '{name}'.")
         elif action == "open skill in finder":

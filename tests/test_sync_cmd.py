@@ -132,7 +132,9 @@ def test_sync_one_accepts_ai_merge_and_writes_live_file(
     monkeypatch.setattr(sync_cmd.store, "flavor_path", lambda _n, scope="auto": flavor_path)
     monkeypatch.setattr(sync_cmd.store, "live_skill_text", lambda _n, scope="auto": "old live\n")
     monkeypatch.setattr(
-        sync_cmd.store, "skill_dir", lambda _n, scope="auto": isolated_paths["store_dir"] / skill_name
+        sync_cmd.store,
+        "skill_dir",
+        lambda _n, scope="auto": isolated_paths["store_dir"] / skill_name,
     )
     monkeypatch.setattr(
         sync_cmd.store,
@@ -186,10 +188,14 @@ def test_sync_one_no_conflicts_preserves_live_local_flavor(
     monkeypatch.setattr(sync_cmd.store, "has_flavor", lambda _n, scope="auto": True)
     monkeypatch.setattr(sync_cmd.store, "flavor_path", lambda _n, scope="auto": flavor_path)
     monkeypatch.setattr(
-        sync_cmd.store, "live_skill_text", lambda _n, scope="auto": (live_dir / "SKILL.md").read_text()
+        sync_cmd.store,
+        "live_skill_text",
+        lambda _n, scope="auto": (live_dir / "SKILL.md").read_text(),
     )
     monkeypatch.setattr(
-        sync_cmd.store, "skill_dir", lambda _n, scope="auto": isolated_paths["store_dir"] / skill_name
+        sync_cmd.store,
+        "skill_dir",
+        lambda _n, scope="auto": isolated_paths["store_dir"] / skill_name,
     )
     monkeypatch.setattr(
         sync_cmd.store,

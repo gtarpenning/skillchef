@@ -121,7 +121,9 @@ def test_e2e_sync_accepts_ai_merge_proposal(
     source = tmp_path / "remote-skill"
     _write_skill_dir(source, body="base v1")
     monkeypatch.setattr("skillchef.ui.multi_choose", lambda _p, _c: ["codex"])
-    monkeypatch.setattr("skillchef.ui.ask", lambda prompt, default="": "demo" if "Skill name" in prompt else default)
+    monkeypatch.setattr(
+        "skillchef.ui.ask", lambda prompt, default="": "demo" if "Skill name" in prompt else default
+    )
 
     runner = CliRunner()
     assert runner.invoke(cli.main, ["cook", str(source)]).exit_code == 0

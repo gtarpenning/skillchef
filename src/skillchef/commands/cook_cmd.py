@@ -82,9 +82,7 @@ def _resolve_existing_name(name: str, *, force_overwrite: bool, scope: str = "au
         return name
 
     if not ui.can_use_interactive_selector():
-        ui.error(
-            f"Skill '{name}' already exists. Re-run with --force-overwrite to replace it."
-        )
+        ui.error(f"Skill '{name}' already exists. Re-run with --force-overwrite to replace it.")
         raise SystemExit(1)
 
     action = ui.choose(

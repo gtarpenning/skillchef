@@ -43,9 +43,7 @@ def classify(source: str) -> str:
     parsed = urlparse(source)
     if "github.com" in (parsed.hostname or ""):
         if not _parse_github_source(source):
-            raise ValueError(
-                "GitHub source must use /blob/.../SKILL.md or /tree/.../<skill-dir>"
-            )
+            raise ValueError("GitHub source must use /blob/.../SKILL.md or /tree/.../<skill-dir>")
         return "github"
     if parsed.scheme in ("http", "https"):
         if parsed.path.endswith("/") or not Path(parsed.path).name:
@@ -136,9 +134,7 @@ def _fetch_github_dir(owner: str, repo: str, ref: str, path: str) -> Path:
 
 
 def _download_github_path(api_url: str, dest: Path) -> None:
-    data = _request_json_with_retry(
-        api_url, headers={"Accept": "application/vnd.github.v3+json"}
-    )
+    data = _request_json_with_retry(api_url, headers={"Accept": "application/vnd.github.v3+json"})
 
     if isinstance(data, dict):
         item = cast(dict[str, Any], data)
@@ -218,7 +214,9 @@ def _resolve_github_commit(owner: str, repo: str, ref: str) -> str:
             api_url, headers={"Accept": "application/vnd.github.v3+json"}
         )
         if not isinstance(data, dict):
-            raise MetadataResolutionError(f"Unexpected response type for commit lookup: {type(data)}")
+            raise MetadataResolutionError(
+                f"Unexpected response type for commit lookup: {type(data)}"
+            )
         payload = cast(dict[str, Any], data)
         return str(payload.get("sha", "")).strip()
     except (FetchError, MetadataResolutionError) as exc:

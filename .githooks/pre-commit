@@ -2,6 +2,15 @@
 set -eu
 
 echo "Running pre-commit checks..."
+
+before_status="$(git status --porcelain=v1)"
 uv run --extra dev ruff format
+after_status="$(git status --porcelain=v1)"
+
+if [ "$before_status" != "$after_status" ]; then
+  echo "Formatting changed files during pre-commit. Auto-staging updates..."
+  git add -u
+fi
+
 uv run --extra dev ruff check
 uv run --extra dev ty check

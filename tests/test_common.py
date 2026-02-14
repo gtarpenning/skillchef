@@ -47,7 +47,9 @@ def test_open_in_file_manager_uses_platform_command(monkeypatch) -> None:
 def test_open_in_file_manager_errors_when_command_missing(monkeypatch) -> None:
     errors: list[str] = []
     monkeypatch.setattr(common.sys, "platform", "darwin")
-    monkeypatch.setattr(common.subprocess, "call", lambda _cmd: (_ for _ in ()).throw(FileNotFoundError()))
+    monkeypatch.setattr(
+        common.subprocess, "call", lambda _cmd: (_ for _ in ()).throw(FileNotFoundError())
+    )
     monkeypatch.setattr(common.ui, "error", lambda msg: errors.append(msg))
 
     with pytest.raises(SystemExit):

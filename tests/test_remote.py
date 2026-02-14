@@ -77,7 +77,9 @@ def test_local_skill_candidates_finds_nested_skill_files(tmp_path: Path) -> None
 
 
 def test_parse_github_source_supports_blob_and_tree() -> None:
-    blob = remote._parse_github_source("https://github.com/acme/repo/blob/main/skills/demo/SKILL.md")
+    blob = remote._parse_github_source(
+        "https://github.com/acme/repo/blob/main/skills/demo/SKILL.md"
+    )
     tree = remote._parse_github_source("https://github.com/acme/repo/tree/main/skills/demo")
 
     assert blob == ("acme", "repo", "main", "skills/demo/SKILL.md")

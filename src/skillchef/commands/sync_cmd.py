@@ -126,7 +126,9 @@ class ConflictResolver:
             return
         proposed_live = merge.merge_skill_text(plan.new_remote, plan.flavor_text)
         ui.info("No merge conflicts detected. Local `## Local Flavor` is preserved unchanged.")
-        ui.show_diff(merge.diff_texts(plan.current_live, proposed_live, "current", "proposed update"))
+        ui.show_diff(
+            merge.diff_texts(plan.current_live, proposed_live, "current", "proposed update")
+        )
 
         ai_proposal = self.strategy.initial_semantic_check_proposal(
             old_base=plan.old_base,
@@ -160,7 +162,9 @@ class ConflictResolver:
         if action == "manual edit":
             store.update_base(plan.name, plan.fetched_dir, scope=self.scope)
             _write_live_skill(plan.name, proposed_live, scope=self.scope)
-            open_editor(store.skill_dir(plan.name, scope=self.scope) / "live" / "SKILL.md", scope=self.scope)
+            open_editor(
+                store.skill_dir(plan.name, scope=self.scope) / "live" / "SKILL.md", scope=self.scope
+            )
             ui.success(f"  {plan.name}: manually merged")
 
     def resolve_with_conflicts(self, plan: SyncPlan) -> None:
@@ -200,7 +204,9 @@ class ConflictResolver:
                 )
                 if proposal:
                     ui.info("Updated AI proposal:")
-                    ui.show_diff(merge.diff_texts(plan.current_live, proposal, "current", "ai proposed"))
+                    ui.show_diff(
+                        merge.diff_texts(plan.current_live, proposal, "current", "ai proposed")
+                    )
                 continue
 
             if action == "accept + re-apply flavor":
