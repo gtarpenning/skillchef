@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+set -eu
+
+echo "Running pre-commit checks..."
+uv run --extra dev ruff format
+uv run --extra dev ruff check
+uv run --extra dev ty check

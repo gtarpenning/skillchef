@@ -51,7 +51,9 @@ def _sync_one(meta: dict[str, Any], ai_available: bool = False) -> None:
         return
 
     old_base = store.base_skill_text(name)
-    new_remote = (fetched_dir / "SKILL.md").read_text() if (fetched_dir / "SKILL.md").exists() else ""
+    new_remote = (
+        (fetched_dir / "SKILL.md").read_text() if (fetched_dir / "SKILL.md").exists() else ""
+    )
     diff_lines = merge.diff_texts(old_base, new_remote, "base (current)", "remote (new)")
 
     ai_future: Future[str] | None = None
@@ -79,7 +81,9 @@ def _sync_one(meta: dict[str, Any], ai_available: bool = False) -> None:
         if ai_result:
             choices.insert(0, "accept ai merge")
             ui.info("AI proposed a semantic merge:")
-            ai_diff = merge.diff_texts(store.live_skill_text(name), ai_result, "current", "ai proposed")
+            ai_diff = merge.diff_texts(
+                store.live_skill_text(name), ai_result, "current", "ai proposed"
+            )
             ui.show_diff(ai_diff)
 
         action = ui.choose("How to handle?", choices)

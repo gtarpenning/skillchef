@@ -16,7 +16,9 @@ console = Console()
 
 
 def banner() -> None:
-    console.print(Panel.fit("[bold]skillchef[/bold]  ·  cook, flavor & sync your skills", border_style="dim"))
+    console.print(
+        Panel.fit("[bold]skillchef[/bold]  ·  cook, flavor & sync your skills", border_style="dim")
+    )
 
 
 def success(msg: str) -> None:
@@ -113,7 +115,9 @@ def show_diff(diff_lines: list[str]) -> None:
     console.print(Panel(text, title="diff", border_style="dim"))
 
 
-def skill_table(skills: list[dict[str, Any]], has_flavor_fn: Callable[[str], bool] | None = None) -> None:
+def skill_table(
+    skills: list[dict[str, Any]], has_flavor_fn: Callable[[str], bool] | None = None
+) -> None:
     if not skills:
         info("No skills cooked yet. Run [bold]skillchef cook <source>[/bold] to get started.")
         return

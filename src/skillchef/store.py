@@ -39,7 +39,9 @@ def save_meta(name: str, meta: dict[str, Any]) -> None:
     meta_path.write_bytes(tomli_w.dumps(meta).encode())
 
 
-def cook(name: str, fetched_dir: Path, remote_url: str, remote_type: str, platforms: list[str]) -> Path:
+def cook(
+    name: str, fetched_dir: Path, remote_url: str, remote_type: str, platforms: list[str]
+) -> Path:
     """Install a fetched skill into the store."""
     sd = skill_dir(name)
     base_dir = sd / "base"

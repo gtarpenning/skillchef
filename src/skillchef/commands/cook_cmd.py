@@ -35,7 +35,9 @@ def run(source: str) -> None:
                     break
 
     name = ui.ask("Skill name", default=default_name)
-    platforms = ui.multi_choose("Target platforms", cfg.get("platforms", list(config.PLATFORMS.keys())))
+    platforms = ui.multi_choose(
+        "Target platforms", cfg.get("platforms", list(config.PLATFORMS.keys()))
+    )
 
     store.cook(name, fetched_dir, source, remote_type, platforms)
     cleanup_fetched(fetched_dir)

@@ -105,7 +105,6 @@ def semantic_merge(old_base: str, new_remote: str, flavor: str, model: str | Non
     resp = completion(
         model=model,
         messages=[{"role": "user", "content": prompt}],
-        temperature=0,
         **completion_kwargs,
     )
     return resp.choices[0].message.content.strip()

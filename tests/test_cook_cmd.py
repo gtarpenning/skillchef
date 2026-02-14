@@ -15,7 +15,9 @@ def test_resolve_source_for_cook_local_single_candidate(tmp_path: Path) -> None:
     assert resolved == str(src)
 
 
-def test_resolve_source_for_cook_local_multiple_candidates_uses_selector(monkeypatch, tmp_path: Path) -> None:
+def test_resolve_source_for_cook_local_multiple_candidates_uses_selector(
+    monkeypatch, tmp_path: Path
+) -> None:
     root = tmp_path / "skills"
     a = root / "a"
     b = root / "b"

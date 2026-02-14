@@ -5,7 +5,9 @@ from skillchef.commands import common
 
 def test_resolve_editor_command_supports_aliases(monkeypatch) -> None:
     monkeypatch.setattr(common, "EDITOR_FALLBACKS", {})
-    monkeypatch.setattr(common.shutil, "which", lambda cmd: f"/usr/bin/{cmd}" if cmd == "code" else None)
+    monkeypatch.setattr(
+        common.shutil, "which", lambda cmd: f"/usr/bin/{cmd}" if cmd == "code" else None
+    )
 
     assert common.resolve_editor_command("vscode") == "code"
 
@@ -13,7 +15,9 @@ def test_resolve_editor_command_supports_aliases(monkeypatch) -> None:
 def test_discover_editor_suggestions_lists_installed_editors(monkeypatch) -> None:
     monkeypatch.setattr(common, "EDITOR_FALLBACKS", {})
     installed = {"code", "cursor", "nvim", "nano", "zed", "atom", "subl"}
-    monkeypatch.setattr(common.shutil, "which", lambda cmd: f"/usr/bin/{cmd}" if cmd in installed else None)
+    monkeypatch.setattr(
+        common.shutil, "which", lambda cmd: f"/usr/bin/{cmd}" if cmd in installed else None
+    )
 
     suggestions = common.discover_editor_suggestions()
 

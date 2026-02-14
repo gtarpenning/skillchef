@@ -40,7 +40,9 @@ def test_resolve_ai_future_handles_errors(monkeypatch: pytest.MonkeyPatch) -> No
     assert warnings and "AI merge failed" in warnings[0]
 
 
-def test_sync_one_updates_base_and_live_when_no_flavor(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_sync_one_updates_base_and_live_when_no_flavor(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     fetched = tmp_path / "remote"
     _write_skill(fetched, "---\nname: hello-chef\n---\n\nremote new\n")
 
@@ -50,13 +52,23 @@ def test_sync_one_updates_base_and_live_when_no_flavor(monkeypatch: pytest.Monke
     monkeypatch.setattr(sync_cmd.store, "hash_dir", lambda _p: "newhash")
     monkeypatch.setattr(sync_cmd.store, "base_skill_text", lambda _n: "old base\n")
     monkeypatch.setattr(sync_cmd.store, "has_flavor", lambda _n: False)
-    monkeypatch.setattr(sync_cmd.store, "update_base", lambda _n, _d: calls.__setitem__("update", calls["update"] + 1))
-    monkeypatch.setattr(sync_cmd.store, "rebuild_live", lambda _n: calls.__setitem__("rebuild", calls["rebuild"] + 1))
+    monkeypatch.setattr(
+        sync_cmd.store,
+        "update_base",
+        lambda _n, _d: calls.__setitem__("update", calls["update"] + 1),
+    )
+    monkeypatch.setattr(
+        sync_cmd.store,
+        "rebuild_live",
+        lambda _n: calls.__setitem__("rebuild", calls["rebuild"] + 1),
+    )
     monkeypatch.setattr(sync_cmd.ui, "confirm", lambda _p: True)
     monkeypatch.setattr(sync_cmd.ui, "show_diff", lambda _d: None)
     monkeypatch.setattr(sync_cmd.ui, "info", lambda _m: None)
     monkeypatch.setattr(sync_cmd.ui, "success", lambda _m: None)
-    monkeypatch.setattr(sync_cmd, "cleanup_fetched", lambda _p: calls.__setitem__("cleanup", calls["cleanup"] + 1))
+    monkeypatch.setattr(
+        sync_cmd, "cleanup_fetched", lambda _p: calls.__setitem__("cleanup", calls["cleanup"] + 1)
+    )
 
     meta = {"name": "hello-chef", "remote_url": "https://example.com", "base_sha256": "oldhash"}
     sync_cmd._sync_one(meta, ai_available=False)
@@ -91,14 +103,22 @@ def test_sync_one_accepts_ai_merge_and_writes_live_file(
     monkeypatch.setattr(sync_cmd.store, "has_flavor", lambda _n: True)
     monkeypatch.setattr(sync_cmd.store, "flavor_path", lambda _n: flavor_path)
     monkeypatch.setattr(sync_cmd.store, "live_skill_text", lambda _n: "old live\n")
-    monkeypatch.setattr(sync_cmd.store, "skill_dir", lambda _n: isolated_paths["store_dir"] / skill_name)
-    monkeypatch.setattr(sync_cmd.store, "update_base", lambda _n, _d: calls.__setitem__("update", calls["update"] + 1))
+    monkeypatch.setattr(
+        sync_cmd.store, "skill_dir", lambda _n: isolated_paths["store_dir"] / skill_name
+    )
+    monkeypatch.setattr(
+        sync_cmd.store,
+        "update_base",
+        lambda _n, _d: calls.__setitem__("update", calls["update"] + 1),
+    )
     monkeypatch.setattr(sync_cmd.ui, "show_diff", lambda _d: None)
     monkeypatch.setattr(sync_cmd.ui, "info", lambda _m: None)
     monkeypatch.setattr(sync_cmd.ui, "success", lambda _m: None)
     monkeypatch.setattr(sync_cmd.ui, "choose", lambda _p, _c: "accept ai merge")
     monkeypatch.setattr(sync_cmd, "semantic_merge", lambda *_a, **_k: "merged output\n")
-    monkeypatch.setattr(sync_cmd, "cleanup_fetched", lambda _p: calls.__setitem__("cleanup", calls["cleanup"] + 1))
+    monkeypatch.setattr(
+        sync_cmd, "cleanup_fetched", lambda _p: calls.__setitem__("cleanup", calls["cleanup"] + 1)
+    )
 
     meta = {"name": skill_name, "remote_url": "https://example.com", "base_sha256": "oldhash"}
     sync_cmd._sync_one(meta, ai_available=True)

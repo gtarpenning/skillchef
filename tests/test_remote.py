@@ -13,7 +13,9 @@ def test_classify_distinguishes_local_http_and_github(tmp_path: Path) -> None:
 
     assert remote.classify(str(local)) == "local"
     assert remote.classify("https://example.com/SKILL.md") == "http"
-    assert remote.classify("https://github.com/acme/repo/blob/main/skills/demo/SKILL.md") == "github"
+    assert (
+        remote.classify("https://github.com/acme/repo/blob/main/skills/demo/SKILL.md") == "github"
+    )
 
 
 def test_classify_rejects_non_file_remote_urls() -> None:

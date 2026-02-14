@@ -27,12 +27,14 @@ def merge_skill(live_skill_path: Path, flavor_path: Path) -> None:
 
 
 def diff_texts(old: str, new: str, label_old: str = "old", label_new: str = "new") -> list[str]:
-    return list(difflib.unified_diff(
-        old.splitlines(keepends=True),
-        new.splitlines(keepends=True),
-        fromfile=label_old,
-        tofile=label_new,
-    ))
+    return list(
+        difflib.unified_diff(
+            old.splitlines(keepends=True),
+            new.splitlines(keepends=True),
+            fromfile=label_old,
+            tofile=label_new,
+        )
+    )
 
 
 def three_way_summary(old_base: str, new_remote: str, flavor: str) -> str:

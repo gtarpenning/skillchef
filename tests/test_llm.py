@@ -29,13 +29,18 @@ def test_semantic_merge_uses_selected_api_key(monkeypatch) -> None:
         )
 
     monkeypatch.setenv("OPENAI_API_KEY", "openai-token")
-    monkeypatch.setattr(llm.config, "load", lambda: {"model": "openai/gpt-5-mini", "llm_api_key_env": "OPENAI_API_KEY"})
+    monkeypatch.setattr(
+        llm.config,
+        "load",
+        lambda: {"model": "openai/gpt-5-mini", "llm_api_key_env": "OPENAI_API_KEY"},
+    )
     monkeypatch.setattr(llm, "completion", fake_completion)
 
     result = llm.semantic_merge("old", "new", "flavor")
 
     assert result == "merged output"
     assert captured["api_key"] == "openai-token"
+    assert "temperature" not in captured
 
 
 def test_semantic_merge_uses_ollama_api_base(monkeypatch) -> None:
@@ -48,7 +53,9 @@ def test_semantic_merge_uses_ollama_api_base(monkeypatch) -> None:
         )
 
     monkeypatch.setenv("OLLAMA_API_BASE", "http://localhost:11434")
-    monkeypatch.setattr(llm.config, "load", lambda: {"model": "ollama/llama3", "llm_api_key_env": "OLLAMA_API_BASE"})
+    monkeypatch.setattr(
+        llm.config, "load", lambda: {"model": "ollama/llama3", "llm_api_key_env": "OLLAMA_API_BASE"}
+    )
     monkeypatch.setattr(llm, "completion", fake_completion)
 
     result = llm.semantic_merge("old", "new", "flavor")
@@ -70,7 +77,10 @@ def test_semantic_merge_aligns_model_with_selected_key(monkeypatch) -> None:
     monkeypatch.setattr(
         llm.config,
         "load",
-        lambda: {"model": "anthropic/claude-sonnet-4-20250514", "llm_api_key_env": "OPENAI_API_KEY"},
+        lambda: {
+            "model": "anthropic/claude-sonnet-4-20250514",
+            "llm_api_key_env": "OPENAI_API_KEY",
+        },
     )
     monkeypatch.setattr(llm, "completion", fake_completion)
 

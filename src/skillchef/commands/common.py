@@ -46,7 +46,9 @@ def open_editor(path: Path) -> None:
     cfg = config.load()
     ed = resolve_editor_command(config.editor(cfg))
     if not ed:
-        ui.error("Editor command not found. Re-run [bold]skillchef init[/bold] and pick an installed editor.")
+        ui.error(
+            "Editor command not found. Re-run [bold]skillchef init[/bold] and pick an installed editor."
+        )
         raise SystemExit(1)
     subprocess.call([ed, str(path)])
 

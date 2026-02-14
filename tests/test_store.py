@@ -14,7 +14,9 @@ def _make_fetched_skill(tmp_path: Path, *, body: str = "Base body") -> Path:
     return fetched
 
 
-def test_cook_creates_expected_layout_meta_and_symlink(isolated_paths: dict[str, Path], tmp_path: Path) -> None:
+def test_cook_creates_expected_layout_meta_and_symlink(
+    isolated_paths: dict[str, Path], tmp_path: Path
+) -> None:
     fetched = _make_fetched_skill(tmp_path)
 
     skill_dir = store.cook(
@@ -40,7 +42,9 @@ def test_cook_creates_expected_layout_meta_and_symlink(isolated_paths: dict[str,
     assert link.resolve() == live.resolve()
 
 
-def test_rebuild_live_reapplies_flavor_without_changing_base(isolated_paths: dict[str, Path], tmp_path: Path) -> None:
+def test_rebuild_live_reapplies_flavor_without_changing_base(
+    isolated_paths: dict[str, Path], tmp_path: Path
+) -> None:
     fetched = _make_fetched_skill(tmp_path, body="Original")
     store.cook("hello-chef", fetched, "local", "local", ["codex"])
 
@@ -72,7 +76,9 @@ def test_hash_dir_is_stable_across_creation_order(tmp_path: Path) -> None:
     assert store.hash_dir(first) == store.hash_dir(second)
 
 
-def test_remove_deletes_store_dir_and_platform_symlink(isolated_paths: dict[str, Path], tmp_path: Path) -> None:
+def test_remove_deletes_store_dir_and_platform_symlink(
+    isolated_paths: dict[str, Path], tmp_path: Path
+) -> None:
     fetched = _make_fetched_skill(tmp_path)
     store.cook("hello-chef", fetched, "local", "local", ["codex"])
 
