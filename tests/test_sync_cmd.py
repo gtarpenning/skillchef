@@ -185,7 +185,9 @@ def test_sync_one_no_conflicts_preserves_live_local_flavor(
     monkeypatch.setattr(sync_cmd.store, "base_skill_text", lambda _n: old_base)
     monkeypatch.setattr(sync_cmd.store, "has_flavor", lambda _n: True)
     monkeypatch.setattr(sync_cmd.store, "flavor_path", lambda _n: flavor_path)
-    monkeypatch.setattr(sync_cmd.store, "live_skill_text", lambda _n: (live_dir / "SKILL.md").read_text())
+    monkeypatch.setattr(
+        sync_cmd.store, "live_skill_text", lambda _n: (live_dir / "SKILL.md").read_text()
+    )
     monkeypatch.setattr(
         sync_cmd.store, "skill_dir", lambda _n: isolated_paths["store_dir"] / skill_name
     )
@@ -200,8 +202,9 @@ def test_sync_one_no_conflicts_preserves_live_local_flavor(
     monkeypatch.setattr(
         sync_cmd.ui,
         "choose",
-        lambda _p, opts: (choices.append(list(opts)) or "accept update"),
+        lambda _p, opts: choices.append(list(opts)) or "accept update",
     )
+
     def fake_semantic_merge(*_args, **_kwargs) -> str:
         semantic_calls["count"] += 1
         return "# Skill\n\nRemote updated base\n\n## Local Flavor\n\nKeep current live flavor\n"

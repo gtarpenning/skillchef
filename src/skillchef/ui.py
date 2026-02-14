@@ -72,6 +72,38 @@ def choose(prompt: str, choices: list[str]) -> str:
         warn("Invalid choice, try again")
 
 
+def choose_optional(prompt: str, choices: list[str]) -> str | None:
+    if _can_use_interactive_selector():
+        try:
+            question = questionary.select(
+                f"  {prompt}",
+                choices=choices,
+                qmark="",
+                instruction="(Esc/Ctrl-C to exit)",
+            )
+            _bind_escape_to_cancel(question)
+            return question.ask(kbi_msg="")
+        except KeyboardInterrupt:
+            return None
+
+    for i, c in enumerate(choices, 1):
+        console.print(f"  [dim]{i}.[/dim] {c}")
+    console.print("  [dim]Press Enter to exit.[/dim]")
+    while True:
+        val = ask(prompt)
+        if not val:
+            return None
+        if val in choices:
+            return val
+        try:
+            idx = int(val) - 1
+            if 0 <= idx < len(choices):
+                return choices[idx]
+        except ValueError:
+            pass
+        warn("Invalid choice, try again")
+
+
 def multi_choose(prompt: str, choices: list[str]) -> list[str]:
     if _can_use_interactive_selector():
         selected = questionary.checkbox(
@@ -188,6 +220,20 @@ def _truncate(s: str, n: int) -> str:
 
 def _can_use_interactive_selector() -> bool:
     return sys.stdin.isatty() and sys.stdout.isatty()
+
+
+def can_use_interactive_selector() -> bool:
+    return _can_use_interactive_selector()
+
+
+def _bind_escape_to_cancel(question: Any) -> None:
+    key_bindings = getattr(getattr(question, "application", None), "key_bindings", None)
+    if key_bindings is None:
+        return
+
+    @key_bindings.add("escape", eager=True)
+    def _cancel(event: Any) -> None:
+        event.app.exit(result=None)
 
 
 def poll_delete_key(timeout_seconds: float = 0.0) -> bool:
