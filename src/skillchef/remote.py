@@ -8,9 +8,6 @@ from urllib.parse import urlparse
 
 import httpx
 
-GITHUB_TREE_RE = re.compile(
-    r"github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/tree/(?P<ref>[^/]+)/(?P<path>.+)"
-)
 GITHUB_BLOB_RE = re.compile(
     r"github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/blob/(?P<ref>[^/]+)/(?P<path>.+)"
 )
@@ -21,8 +18,12 @@ def classify(source: str) -> str:
         return "local"
     parsed = urlparse(source)
     if "github.com" in (parsed.hostname or ""):
+        if not GITHUB_BLOB_RE.search(source):
+            raise ValueError("GitHub source must be a direct file URL (use /blob/.../SKILL.md)")
         return "github"
     if parsed.scheme in ("http", "https"):
+        if parsed.path.endswith("/") or not Path(parsed.path).name:
+            raise ValueError("HTTP source must be a direct file URL")
         return "http"
     raise ValueError(f"Cannot classify source: {source}")
 
@@ -53,9 +54,9 @@ def _fetch_local(source: str) -> Path:
 
 
 def _fetch_github(source: str) -> Path:
-    m = GITHUB_TREE_RE.search(source) or GITHUB_BLOB_RE.search(source)
+    m = GITHUB_BLOB_RE.search(source)
     if not m:
-        raise ValueError(f"Cannot parse GitHub URL: {source}")
+        raise ValueError("Cannot parse GitHub URL. Use a direct /blob/.../SKILL.md URL.")
     owner, repo, ref, path = m.group("owner"), m.group("repo"), m.group("ref"), m.group("path")
     return _fetch_github_dir(owner, repo, ref, path)
 
@@ -104,3 +105,19 @@ def _fetch_http(source: str) -> Path:
     filename = Path(parsed.path).name or "SKILL.md"
     _download_raw(source, skill_dir / filename)
     return skill_dir
+
+
+def local_skill_candidates(source: str) -> list[Path]:
+    src = Path(source).resolve()
+    if src.is_file():
+        if src.name == "SKILL.md":
+            return [src]
+        return []
+    if not src.is_dir():
+        return []
+
+    found: list[Path] = []
+    if (src / "SKILL.md").exists():
+        found.append(src / "SKILL.md")
+    found.extend(sorted(p for p in src.rglob("SKILL.md") if p != src / "SKILL.md"))
+    return found

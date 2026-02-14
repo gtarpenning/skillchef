@@ -3,7 +3,9 @@ from __future__ import annotations
 import os
 
 from skillchef import config, ui
-from skillchef.llm import detect_keys
+from skillchef.llm import default_model_for_key, detect_keys
+
+from .common import discover_editor_suggestions
 
 
 def run() -> None:
@@ -23,10 +25,8 @@ def run() -> None:
         list(config.PLATFORMS.keys()),
     )
 
-    editor = ui.ask("Preferred editor", default=os.environ.get("EDITOR", "vim"))
-
-    default_model = "anthropic/claude-sonnet-4-20250514"
     selected_key_env = ""
+    provider = ""
     if detected:
         if len(detected) == 1:
             selected_key_env, provider = detected[0]
@@ -37,6 +37,22 @@ def run() -> None:
             selected_key_env = label_to_env[selected_label]
             provider = next(p for env_var, p in detected if env_var == selected_key_env)
         ui.info(f"AI merge will use [bold]{selected_key_env}[/bold] ({provider})")
+    ui.console.print()
+
+    default_editor = os.environ.get("EDITOR", "vim")
+    suggestions = discover_editor_suggestions()
+    if suggestions:
+        display_to_cmd = {f"{label} ({cmd})": cmd for label, cmd in suggestions}
+        editor_choices = list(display_to_cmd.keys()) + ["Custom value"]
+        selected_editor = ui.choose("Preferred editor", editor_choices)
+        editor = display_to_cmd[selected_editor] if selected_editor in display_to_cmd else ui.ask(
+            "Preferred editor",
+            default=default_editor,
+        )
+    else:
+        editor = ui.ask("Preferred editor", default=default_editor)
+
+    default_model = default_model_for_key(selected_key_env)
     model = ui.ask("AI model for semantic merge", default=default_model)
 
     cfg = {"platforms": platforms, "editor": editor, "model": model, "llm_api_key_env": selected_key_env}

@@ -3,14 +3,13 @@ from __future__ import annotations
 import sys
 from typing import Any, Callable
 
-from questionary import Choice
 import questionary
+from questionary import Choice
 from rich.console import Console
-from rich.columns import Columns
-from rich.prompt import Prompt, Confirm
+from rich.panel import Panel
+from rich.prompt import Confirm, Prompt
 from rich.syntax import Syntax
 from rich.table import Table
-from rich.panel import Panel
 from rich.text import Text
 
 console = Console()

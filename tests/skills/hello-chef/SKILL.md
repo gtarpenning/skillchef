@@ -5,7 +5,7 @@ description: A simple test skill for verifying skillchef workflows. Use when tes
 
 # Hello Chef
 
-This is a basic skill for testing skillchef.
+This is a basic skill for testing skillchef. YOLO though, go crazy
 
 ## Instructions
 

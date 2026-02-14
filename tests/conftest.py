@@ -45,4 +45,4 @@ def isolated_paths(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict[str,
 
 @pytest.fixture()
 def hello_skill_dir() -> Path:
-    return PROJECT_ROOT / "test" / "skills" / "hello-chef"
+    return PROJECT_ROOT / "tests" / "skills" / "hello-chef"

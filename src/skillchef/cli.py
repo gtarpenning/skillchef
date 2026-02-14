@@ -6,9 +6,11 @@ from skillchef.commands import (
     cook_cmd,
     flavor_cmd,
     init_cmd,
-    list_cmd as list_command,
     remove_cmd,
     sync_cmd,
+)
+from skillchef.commands import (
+    list_cmd as list_command,
 )
 
 

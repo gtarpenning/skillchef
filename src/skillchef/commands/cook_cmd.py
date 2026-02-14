@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from skillchef import config, merge, remote, store, ui
 
 from .common import cleanup_fetched, ensure_config
@@ -8,6 +10,12 @@ from .common import cleanup_fetched, ensure_config
 def run(source: str) -> None:
     ui.banner()
     cfg = ensure_config()
+
+    try:
+        source = _resolve_source_for_cook(source)
+    except Exception as e:
+        ui.error(f"Invalid source: {e}")
+        raise SystemExit(1)
 
     ui.info(f"Fetching from {source}...")
     try:
@@ -35,3 +43,21 @@ def run(source: str) -> None:
     ui.success(f"Cooked [bold]{name}[/bold]!")
     for p in platforms:
         ui.info(f"Symlinked → {config.platform_skill_dir(p) / name}")
+
+
+def _resolve_source_for_cook(source: str) -> str:
+    kind = remote.classify(source)
+    if kind != "local":
+        return source
+
+    candidates = remote.local_skill_candidates(source)
+    if not candidates:
+        raise ValueError("No SKILL.md files found in local source")
+    if len(candidates) == 1:
+        return str(candidates[0].parent)
+
+    root = Path(source).resolve()
+    labels = [str(p.parent.relative_to(root)) for p in candidates]
+    picked = ui.choose("Multiple local skills found. Which one should be cooked?", labels)
+    selected = candidates[labels.index(picked)]
+    return str(selected.parent)

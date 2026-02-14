@@ -13,6 +13,12 @@ def test_selected_key_prefers_configured_and_falls_back(monkeypatch) -> None:
     assert llm.selected_key("NOT_PRESENT") == ("ANTHROPIC_API_KEY", "Anthropic")
 
 
+def test_default_model_for_key_uses_provider_defaults() -> None:
+    assert llm.default_model_for_key("OPENAI_API_KEY") == "openai/gpt-5-mini"
+    assert llm.default_model_for_key("ANTHROPIC_API_KEY") == "anthropic/claude-sonnet-4-20250514"
+    assert llm.default_model_for_key("UNKNOWN") == "anthropic/claude-sonnet-4-20250514"
+
+
 def test_semantic_merge_uses_selected_api_key(monkeypatch) -> None:
     captured: dict[str, object] = {}
 
@@ -49,3 +55,27 @@ def test_semantic_merge_uses_ollama_api_base(monkeypatch) -> None:
 
     assert result == "merged output"
     assert captured["api_base"] == "http://localhost:11434"
+
+
+def test_semantic_merge_aligns_model_with_selected_key(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_completion(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="merged output"))]
+        )
+
+    monkeypatch.setenv("OPENAI_API_KEY", "openai-token")
+    monkeypatch.setattr(
+        llm.config,
+        "load",
+        lambda: {"model": "anthropic/claude-sonnet-4-20250514", "llm_api_key_env": "OPENAI_API_KEY"},
+    )
+    monkeypatch.setattr(llm, "completion", fake_completion)
+
+    result = llm.semantic_merge("old", "new", "flavor")
+
+    assert result == "merged output"
+    assert captured["api_key"] == "openai-token"
+    assert captured["model"] == "openai/gpt-5-mini"
