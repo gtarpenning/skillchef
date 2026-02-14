@@ -44,3 +44,18 @@ def test_three_way_summary_includes_upstream_and_flavor_sections() -> None:
     assert "=== Your flavor ===" in summary
     assert "-Old line" in summary and "+New line" in summary
     assert "Keep this local" in summary
+
+
+def test_split_local_flavor_section_extracts_trailing_local_section() -> None:
+    text = "# Skill\n\nBase\n\n## Local Flavor\n\nKeep this\n"
+    base, flavor = merge.split_local_flavor_section(text)
+
+    assert base == "# Skill\n\nBase\n"
+    assert flavor == "Keep this"
+
+
+def test_has_non_flavor_local_changes_ignores_flavor_section_only() -> None:
+    old_base = "# Skill\n\nBase\n"
+    current_live = "# Skill\n\nBase\n\n## Local Flavor\n\nKeep this\n"
+
+    assert not merge.has_non_flavor_local_changes(old_base, current_live)

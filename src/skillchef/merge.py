@@ -6,6 +6,7 @@ from pathlib import Path
 
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?\n)---\s*\n", re.DOTALL)
 FLAVOR_HEADER = "\n\n## Local Flavor\n\n"
+FLAVOR_SECTION_RE = re.compile(r"(?m)^##\s+Local Flavor\s*$")
 
 
 def split_frontmatter(text: str) -> tuple[str, str]:
@@ -16,14 +17,31 @@ def split_frontmatter(text: str) -> tuple[str, str]:
 
 
 def merge_skill(live_skill_path: Path, flavor_path: Path) -> None:
-    base_text = live_skill_path.read_text()
-    flavor_text = flavor_path.read_text().strip()
-    if not flavor_text:
-        return
+    merged = merge_skill_text(live_skill_path.read_text(), flavor_path.read_text())
+    live_skill_path.write_text(merged)
+
+
+def merge_skill_text(base_text: str, flavor_text: str) -> str:
+    flavor = flavor_text.strip()
+    if not flavor:
+        return _ensure_newline(base_text)
     front, body = split_frontmatter(base_text)
     body = body.rstrip()
-    merged = front + body + FLAVOR_HEADER + flavor_text + "\n"
-    live_skill_path.write_text(merged)
+    return front + body + FLAVOR_HEADER + flavor + "\n"
+
+
+def split_local_flavor_section(text: str) -> tuple[str, str | None]:
+    match = FLAVOR_SECTION_RE.search(text)
+    if not match:
+        return text, None
+    base = text[: match.start()]
+    flavor = text[match.end() :]
+    return _ensure_newline(base.rstrip()), flavor.strip("\n")
+
+
+def has_non_flavor_local_changes(old_base: str, current_live: str) -> bool:
+    live_without_flavor, _ = split_local_flavor_section(current_live)
+    return _normalize_for_compare(live_without_flavor) != _normalize_for_compare(old_base)
 
 
 def diff_texts(old: str, new: str, label_old: str = "old", label_new: str = "new") -> list[str]:
@@ -47,3 +65,13 @@ def three_way_summary(old_base: str, new_remote: str, flavor: str) -> str:
         lines.append("\n=== Your flavor ===")
         lines.append(flavor)
     return "".join(lines)
+
+
+def _normalize_for_compare(text: str) -> str:
+    return _ensure_newline(text).rstrip("\n")
+
+
+def _ensure_newline(text: str) -> str:
+    if not text:
+        return ""
+    return text if text.endswith("\n") else text + "\n"

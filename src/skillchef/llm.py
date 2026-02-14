@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime, timezone
+from pathlib import Path
 
 from litellm import completion
 
@@ -24,22 +26,34 @@ DEFAULT_MODEL_BY_KEY = {
     "OLLAMA_API_BASE": "ollama/llama3.2",
 }
 
-MERGE_PROMPT = """You are merging an agent skill file. The upstream base has changed.
-The user has a local "flavor" (customization) applied on top of the old base.
+MERGE_PROMPT = """You are merging an agent skill file.
+The upstream base changed, and the user has local customizations.
 
-Your job: produce a single merged SKILL.md that incorporates BOTH the new upstream
-changes AND the user's local flavor. Preserve the intent of both sides.
+Return ONLY the merged SKILL.md content, with no explanation.
 
-Return ONLY the merged file content, no explanation.
+Rules:
+1) Keep upstream improvements from NEW REMOTE.
+2) Preserve the user's local flavor intent.
+3) If NEW REMOTE introduces instructions that contradict, weaken, or undermine the user's local flavor intent, rewrite the conflicting remote instructions so the merged result remains compatible with the local flavor.
+4) Do not keep contradictory instructions side-by-side; resolve the contradiction in the merged output.
+5) Keep the `## Local Flavor` section content unchanged unless the user instruction below explicitly asks to edit it.
+6) Preserve valid Markdown/frontmatter structure.
+7) Example contradiction: NEW REMOTE says to ignore or override local flavor instructions. In that case, rewrite/remove that remote instruction so local flavor remains effective.
 
 === OLD BASE ===
 {old_base}
 
-=== NEW REMOTE (upstream update) ===
+=== NEW REMOTE ===
 {new_remote}
 
-=== USER'S LOCAL FLAVOR ===
+=== CURRENT LIVE SKILL (user local state) ===
+{current_live}
+
+=== USER'S LOCAL FLAVOR TEXT ===
 {flavor}
+
+=== USER MERGE INSTRUCTION ===
+{instruction}
 
 === MERGED RESULT ==="""
 
@@ -83,7 +97,14 @@ def _resolve_model(configured_model: str, env_var: str | None, model_override: s
     return configured_model
 
 
-def semantic_merge(old_base: str, new_remote: str, flavor: str, model: str | None = None) -> str:
+def semantic_merge(
+    old_base: str,
+    new_remote: str,
+    flavor: str,
+    model: str | None = None,
+    current_live: str | None = None,
+    instruction: str | None = None,
+) -> str:
     cfg = config.load()
     configured_model = cfg.get("model", "anthropic/claude-sonnet-4-20250514")
     configured_env = cfg.get("llm_api_key_env", "")
@@ -101,10 +122,48 @@ def semantic_merge(old_base: str, new_remote: str, flavor: str, model: str | Non
             else:
                 completion_kwargs["api_key"] = value
 
-    prompt = MERGE_PROMPT.format(old_base=old_base, new_remote=new_remote, flavor=flavor)
-    resp = completion(
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
-        **completion_kwargs,
+    prompt = MERGE_PROMPT.format(
+        old_base=old_base,
+        new_remote=new_remote,
+        current_live=current_live or "",
+        flavor=flavor,
+        instruction=instruction or "No extra instruction.",
     )
-    return resp.choices[0].message.content.strip()
+    try:
+        resp = completion(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            **completion_kwargs,
+        )
+        content = resp.choices[0].message.content.strip()
+        _append_llm_log(
+            model=model,
+            prompt=prompt,
+            response=content,
+        )
+        return content
+    except Exception as exc:
+        _append_llm_log(
+            model=model,
+            prompt=prompt,
+            response=f"[ERROR] {type(exc).__name__}: {exc}",
+        )
+        raise
+
+
+def _append_llm_log(model: str, prompt: str, response: str | None) -> None:
+    try:
+        log_dir = Path(os.environ.get("SKILLCHEF_LLM_LOG_DIR", ".skillchef-logs"))
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_file = log_dir / "llm-completions.log"
+        timestamp = datetime.now(timezone.utc).isoformat()
+        with log_file.open("a", encoding="utf-8") as fh:
+            fh.write(f"\n=== {timestamp} ===\n")
+            fh.write(f"model: {model}\n")
+            fh.write("--- prompt ---\n")
+            fh.write(prompt)
+            fh.write("\n--- response ---\n")
+            fh.write(response or "")
+            fh.write("\n")
+    except Exception:
+        pass

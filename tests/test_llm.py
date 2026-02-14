@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 from skillchef import llm
@@ -89,3 +90,28 @@ def test_semantic_merge_aligns_model_with_selected_key(monkeypatch) -> None:
     assert result == "merged output"
     assert captured["api_key"] == "openai-token"
     assert captured["model"] == "openai/gpt-5-mini"
+
+
+def test_semantic_merge_appends_log_file(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "openai-token")
+    monkeypatch.setenv("SKILLCHEF_LLM_LOG_DIR", str(tmp_path / "logs"))
+    monkeypatch.setattr(
+        llm.config,
+        "load",
+        lambda: {"model": "openai/gpt-5-mini", "llm_api_key_env": "OPENAI_API_KEY"},
+    )
+    monkeypatch.setattr(
+        llm,
+        "completion",
+        lambda **_kwargs: SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="merged output"))]
+        ),
+    )
+
+    result = llm.semantic_merge("old", "new", "flavor")
+    log_text = (tmp_path / "logs" / "llm-completions.log").read_text()
+
+    assert result == "merged output"
+    assert "model: openai/gpt-5-mini" in log_text
+    assert "=== OLD BASE ===" in log_text
+    assert "merged output" in log_text

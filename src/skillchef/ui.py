@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import select
 import sys
 from typing import Any, Callable
 
@@ -186,3 +188,35 @@ def _truncate(s: str, n: int) -> str:
 
 def _can_use_interactive_selector() -> bool:
     return sys.stdin.isatty() and sys.stdout.isatty()
+
+
+def poll_delete_key(timeout_seconds: float = 0.0) -> bool:
+    if not _can_use_interactive_selector():
+        return False
+    try:
+        import termios
+        import tty
+
+        fd = sys.stdin.fileno()
+        old = termios.tcgetattr(fd)
+        try:
+            tty.setcbreak(fd)
+            ready, _, _ = select.select([sys.stdin], [], [], timeout_seconds)
+            if not ready:
+                return False
+            first = os.read(fd, 1)
+            if first == b"\x7f":
+                return True
+            if first != b"\x1b":
+                return False
+            seq = b""
+            while True:
+                more, _, _ = select.select([sys.stdin], [], [], 0.001)
+                if not more:
+                    break
+                seq += os.read(fd, 1)
+            return seq.startswith(b"[3~")
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old)
+    except Exception:
+        return False
