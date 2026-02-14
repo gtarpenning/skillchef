@@ -7,7 +7,7 @@ def test_save_and_load_round_trip(isolated_paths: dict[str, str]) -> None:
     payload = {
         "platforms": ["codex", "cursor"],
         "editor": "nvim",
-        "model": "openai/gpt-5-mini",
+        "model": "openai/gpt-5.2",
     }
 
     config.save(payload)

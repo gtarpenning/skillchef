@@ -18,11 +18,11 @@ LLM_KEY_MAP = [
 ]
 
 DEFAULT_MODEL_BY_KEY = {
-    "ANTHROPIC_API_KEY": "anthropic/claude-sonnet-4-20250514",
-    "OPENAI_API_KEY": "openai/gpt-5-mini",
-    "GEMINI_API_KEY": "gemini/gemini-2.5-pro",
-    "MISTRAL_API_KEY": "mistral/mistral-large-latest",
-    "COHERE_API_KEY": "cohere/command-r-plus",
+    "ANTHROPIC_API_KEY": "anthropic/claude-sonnet-4-5",
+    "OPENAI_API_KEY": "openai/gpt-5.2",
+    "GEMINI_API_KEY": "gemini/gemini-2.5-flash",
+    "MISTRAL_API_KEY": "mistral/mistral-medium-latest",
+    "COHERE_API_KEY": "cohere/command-r-plus-08-2024",
     "OLLAMA_API_BASE": "ollama/llama3.2",
 }
 
@@ -74,7 +74,7 @@ def selected_key(preferred_env_var: str | None = None) -> tuple[str, str] | None
 
 
 def default_model_for_key(env_var: str | None) -> str:
-    return DEFAULT_MODEL_BY_KEY.get(env_var or "", "anthropic/claude-sonnet-4-20250514")
+    return DEFAULT_MODEL_BY_KEY.get(env_var or "", "anthropic/claude-sonnet-4-5")
 
 
 def has_llm() -> bool:
@@ -106,7 +106,7 @@ def semantic_merge(
     instruction: str | None = None,
 ) -> str:
     cfg = config.load()
-    configured_model = cfg.get("model", "anthropic/claude-sonnet-4-20250514")
+    configured_model = cfg.get("model", "anthropic/claude-sonnet-4-5")
     configured_env = cfg.get("llm_api_key_env", "")
     key = selected_key(configured_env)
     env_var = key[0] if key else None

@@ -15,9 +15,12 @@ def test_selected_key_prefers_configured_and_falls_back(monkeypatch) -> None:
 
 
 def test_default_model_for_key_uses_provider_defaults() -> None:
-    assert llm.default_model_for_key("OPENAI_API_KEY") == "openai/gpt-5-mini"
-    assert llm.default_model_for_key("ANTHROPIC_API_KEY") == "anthropic/claude-sonnet-4-20250514"
-    assert llm.default_model_for_key("UNKNOWN") == "anthropic/claude-sonnet-4-20250514"
+    assert llm.default_model_for_key("OPENAI_API_KEY") == "openai/gpt-5.2"
+    assert llm.default_model_for_key("ANTHROPIC_API_KEY") == "anthropic/claude-sonnet-4-5"
+    assert llm.default_model_for_key("GEMINI_API_KEY") == "gemini/gemini-2.5-flash"
+    assert llm.default_model_for_key("MISTRAL_API_KEY") == "mistral/mistral-medium-latest"
+    assert llm.default_model_for_key("COHERE_API_KEY") == "cohere/command-r-plus-08-2024"
+    assert llm.default_model_for_key("UNKNOWN") == "anthropic/claude-sonnet-4-5"
 
 
 def test_semantic_merge_uses_selected_api_key(monkeypatch) -> None:
@@ -33,7 +36,7 @@ def test_semantic_merge_uses_selected_api_key(monkeypatch) -> None:
     monkeypatch.setattr(
         llm.config,
         "load",
-        lambda: {"model": "openai/gpt-5-mini", "llm_api_key_env": "OPENAI_API_KEY"},
+        lambda: {"model": "openai/gpt-5.2", "llm_api_key_env": "OPENAI_API_KEY"},
     )
     monkeypatch.setattr(llm, "completion", fake_completion)
 
@@ -79,7 +82,7 @@ def test_semantic_merge_aligns_model_with_selected_key(monkeypatch) -> None:
         llm.config,
         "load",
         lambda: {
-            "model": "anthropic/claude-sonnet-4-20250514",
+            "model": "anthropic/claude-sonnet-4-5",
             "llm_api_key_env": "OPENAI_API_KEY",
         },
     )
@@ -89,7 +92,7 @@ def test_semantic_merge_aligns_model_with_selected_key(monkeypatch) -> None:
 
     assert result == "merged output"
     assert captured["api_key"] == "openai-token"
-    assert captured["model"] == "openai/gpt-5-mini"
+    assert captured["model"] == "openai/gpt-5.2"
 
 
 def test_semantic_merge_appends_log_file(monkeypatch, tmp_path: Path) -> None:
@@ -98,7 +101,7 @@ def test_semantic_merge_appends_log_file(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(
         llm.config,
         "load",
-        lambda: {"model": "openai/gpt-5-mini", "llm_api_key_env": "OPENAI_API_KEY"},
+        lambda: {"model": "openai/gpt-5.2", "llm_api_key_env": "OPENAI_API_KEY"},
     )
     monkeypatch.setattr(
         llm,
@@ -112,6 +115,6 @@ def test_semantic_merge_appends_log_file(monkeypatch, tmp_path: Path) -> None:
     log_text = (tmp_path / "logs" / "llm-completions.log").read_text()
 
     assert result == "merged output"
-    assert "model: openai/gpt-5-mini" in log_text
+    assert "model: openai/gpt-5.2" in log_text
     assert "=== OLD BASE ===" in log_text
     assert "merged output" in log_text

@@ -20,7 +20,7 @@ PLATFORMS: dict[str, Path] = {
 DEFAULT_CONFIG: dict[str, Any] = {
     "platforms": [],
     "editor": "",
-    "model": "anthropic/claude-sonnet-4-20250514",
+    "model": "anthropic/claude-sonnet-4-5",
     "llm_api_key_env": "",
 }
 
