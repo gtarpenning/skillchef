@@ -104,8 +104,9 @@ def semantic_merge(
     model: str | None = None,
     current_live: str | None = None,
     instruction: str | None = None,
+    scope: str = "global",
 ) -> str:
-    cfg = config.load()
+    cfg = config.load(scope=scope)
     configured_model = cfg.get("model", "anthropic/claude-sonnet-4-5")
     configured_env = cfg.get("llm_api_key_env", "")
     key = selected_key(configured_env)

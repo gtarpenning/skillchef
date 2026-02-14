@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from skillchef import store
 
 
@@ -40,6 +42,13 @@ def test_cook_creates_expected_layout_meta_and_symlink(
     assert meta["base_sha256"] == store.hash_dir(base)
     assert link.is_symlink()
     assert link.resolve() == live.resolve()
+    assert meta["source_type"] == "http"
+    assert meta["source_url"] == "https://example.com/hello"
+    assert meta["source_path"] == "/hello"
+    assert "source_repo" in meta
+    assert "source_ref_requested" in meta
+    assert "source_ref_resolved" in meta
+    assert "source_commit_sha" in meta
 
 
 def test_rebuild_live_reapplies_flavor_without_changing_base(
@@ -90,3 +99,78 @@ def test_remove_deletes_store_dir_and_platform_symlink(
 
     assert not skill_path.exists()
     assert not link.exists()
+
+
+def test_update_base_refreshes_source_metadata(
+    isolated_paths: dict[str, Path], tmp_path: Path, monkeypatch
+) -> None:
+    fetched = _make_fetched_skill(tmp_path, body="v1")
+    store.cook("hello-chef", fetched, "https://example.com/hello", "http", ["codex"])
+
+    new_fetched = tmp_path / "fetched-new"
+    new_fetched.mkdir()
+    (new_fetched / "SKILL.md").write_text("---\nname: hello-chef\n---\n\n# Hello\n\nv2\n")
+
+    monkeypatch.setattr(
+        store.remote,
+        "source_metadata",
+        lambda _url, _type=None: {
+            "source_type": "http",
+            "source_url": "https://example.com/hello",
+            "source_repo": "",
+            "source_path": "/hello",
+            "source_ref_requested": "",
+            "source_ref_resolved": "etag-2",
+            "source_commit_sha": "",
+        },
+    )
+
+    store.update_base("hello-chef", new_fetched)
+    meta = store.load_meta("hello-chef")
+
+    assert meta["source_ref_resolved"] == "etag-2"
+
+
+def test_scope_isolation_between_global_and_project(
+    isolated_paths: dict[str, Path], tmp_path: Path, monkeypatch
+) -> None:
+    fetched = _make_fetched_skill(tmp_path)
+    project = tmp_path / "project"
+    project.mkdir()
+    monkeypatch.chdir(project)
+
+    store.cook("hello-chef", fetched, "https://example.com/global", "http", ["codex"], scope="global")
+    store.cook("hello-chef", fetched, "https://example.com/project", "http", ["codex"], scope="project")
+
+    global_meta = store.load_meta("hello-chef", scope="global")
+    project_meta = store.load_meta("hello-chef", scope="project")
+
+    assert global_meta["remote_url"] == "https://example.com/global"
+    assert project_meta["remote_url"] == "https://example.com/project"
+
+
+def test_cook_refuses_to_overwrite_non_symlink_platform_path(
+    isolated_paths: dict[str, Path], tmp_path: Path
+) -> None:
+    fetched = _make_fetched_skill(tmp_path)
+    conflict = isolated_paths["platform_codex"] / "hello-chef"
+    conflict.mkdir(parents=True)
+
+    with pytest.raises(RuntimeError, match="Refusing to overwrite non-symlink"):
+        store.cook("hello-chef", fetched, "local", "local", ["codex"])
+
+    assert conflict.exists() and conflict.is_dir()
+
+
+def test_remove_refuses_to_delete_non_symlink_platform_path(
+    isolated_paths: dict[str, Path], tmp_path: Path
+) -> None:
+    fetched = _make_fetched_skill(tmp_path)
+    store.cook("hello-chef", fetched, "local", "local", ["codex"])
+
+    link = isolated_paths["platform_codex"] / "hello-chef"
+    link.unlink()
+    link.mkdir()
+
+    with pytest.raises(RuntimeError, match="Refusing to remove non-symlink"):
+        store.remove("hello-chef")

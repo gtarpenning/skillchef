@@ -8,7 +8,7 @@ from skillchef.llm import default_model_for_key, detect_keys
 from .common import discover_editor_suggestions
 
 
-def run() -> None:
+def run(scope: str = "auto") -> None:
     ui.banner()
     ui.console.print()
 
@@ -24,6 +24,7 @@ def run() -> None:
         "Which platforms do you use?",
         list(config.PLATFORMS.keys()),
     )
+    default_scope = ui.choose("Default scope for skill storage", ["global", "project"])
 
     selected_key_env = ""
     provider = ""
@@ -66,10 +67,11 @@ def run() -> None:
         "editor": editor,
         "model": model,
         "llm_api_key_env": selected_key_env,
+        "default_scope": default_scope,
     }
-    config.save(cfg)
+    config.save(cfg, scope=scope)
 
     ui.console.print()
     ui.show_config_summary(cfg)
     ui.console.print()
-    ui.success(f"Config saved to [bold]{config.CONFIG_PATH}[/bold]")
+    ui.success(f"Config saved to [bold]{config.config_file_path(scope=scope)}[/bold]")

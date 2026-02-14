@@ -203,6 +203,7 @@ def show_config_summary(cfg: dict[str, Any]) -> None:
     table.add_row("Editor", cfg.get("editor", ""))
     table.add_row("AI Model", cfg.get("model", ""))
     table.add_row("AI Key", cfg.get("llm_api_key_env", "") or "(auto)")
+    table.add_row("Default Scope", cfg.get("default_scope", "global"))
     console.print(table)
 
 
@@ -212,6 +213,25 @@ def spinner(msg: str) -> Any:
 
 def show_skill_md(text: str, title: str = "SKILL.md") -> None:
     console.print(Syntax(text, "markdown", theme="monokai", line_numbers=False, word_wrap=True))
+
+
+def show_skill_inspect(meta: dict[str, Any], *, flavored: bool) -> None:
+    table = Table(show_header=False, border_style="dim", padding=(0, 2))
+    table.add_column("Key", style="bold")
+    table.add_column("Value")
+    table.add_row("Name", str(meta.get("name", "")))
+    table.add_row("Source URL", str(meta.get("remote_url", "")))
+    table.add_row("Source Type", str(meta.get("remote_type", "")))
+    table.add_row("Last Sync", str(meta.get("last_sync", "")))
+    table.add_row("Flavor", "yes" if flavored else "no")
+    table.add_row("Platforms", ", ".join(meta.get("platforms", [])))
+    table.add_row("Base SHA256", str(meta.get("base_sha256", "")))
+    table.add_row("Source Repo", str(meta.get("source_repo", "")))
+    table.add_row("Source Path", str(meta.get("source_path", "")))
+    table.add_row("Requested Ref", str(meta.get("source_ref_requested", "")))
+    table.add_row("Resolved Ref", str(meta.get("source_ref_resolved", "")))
+    table.add_row("Commit SHA", str(meta.get("source_commit_sha", "")))
+    console.print(table)
 
 
 def _truncate(s: str, n: int) -> str:

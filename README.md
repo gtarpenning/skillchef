@@ -14,6 +14,7 @@ uvx skillchef
 uvx skillchef init
 uvx skillchef cook https://github.com/anthropics/skills/blob/main/skills/frontend-design/SKILL.md
 uvx skillchef flavor
+uvx skillchef inspect frontend-design
 
 # next week
 uvx skillchef sync
@@ -29,7 +30,7 @@ flavor.md   ← your local additions (optional)
 live/       ← merged result (base + flavor), symlinked into platform dirs
 ```
 
-`cook` fetches a skill and symlinks it into your configured platform directories (`~/.codex/skills/`, `~/.cursor/skills/`, etc).
+`cook` fetches a skill and symlinks it into your configured platform directories (`~/.codex/skills/`, etc).
 
 `sync` checks the remote for changes. If your skill has a flavor, it shows the upstream diff and proposes a semantic merge via LLM (auto-detected from env API keys).
 
@@ -37,7 +38,8 @@ live/       ← merged result (base + flavor), symlinked into platform dirs
 
 ## What can I cook?
 
-- **GitHub**: `https://github.com/user/repo/tree/main/path/to/skill`
+- **GitHub file**: `https://github.com/user/repo/blob/main/path/to/skill/SKILL.md`
+- **GitHub directory**: `https://github.com/user/repo/tree/main/path/to/skill`
 - **HTTP**: any direct URL to a SKILL.md file
 - **Local**: path to a skill directory or file on disk
 
@@ -67,5 +69,5 @@ And those `live/` directories are what get linked into each platform:
 ```
 
 When you run `sync`, SkillChef fetches the latest upstream `SKILL.md` and updates `base/SKILL.md`.
-Then it re-renders `live/SKILL.md` by applying your `flavor.md` on top, and updates `meta.toml` (hash + last sync timestamp).
+Then it re-renders `live/SKILL.md` by applying your `flavor.md` on top, and updates `meta.toml` (hash, last sync timestamp, and source provenance fields such as repo/path/ref/commit when available).
 The symlink paths in `~/<>/skills/` keep pointing at the same `live/` directory.

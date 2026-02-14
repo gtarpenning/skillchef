@@ -78,17 +78,17 @@ def test_sync_one_updates_base_and_live_when_no_flavor(
 
     monkeypatch.setattr(sync_cmd.remote, "fetch", lambda _url: (fetched, "http"))
     monkeypatch.setattr(sync_cmd.store, "hash_dir", lambda _p: "newhash")
-    monkeypatch.setattr(sync_cmd.store, "base_skill_text", lambda _n: "old base\n")
-    monkeypatch.setattr(sync_cmd.store, "has_flavor", lambda _n: False)
+    monkeypatch.setattr(sync_cmd.store, "base_skill_text", lambda _n, scope="auto": "old base\n")
+    monkeypatch.setattr(sync_cmd.store, "has_flavor", lambda _n, scope="auto": False)
     monkeypatch.setattr(
         sync_cmd.store,
         "update_base",
-        lambda _n, _d: calls.__setitem__("update", calls["update"] + 1),
+        lambda _n, _d, scope="auto": calls.__setitem__("update", calls["update"] + 1),
     )
     monkeypatch.setattr(
         sync_cmd.store,
         "rebuild_live",
-        lambda _n: calls.__setitem__("rebuild", calls["rebuild"] + 1),
+        lambda _n, scope="auto": calls.__setitem__("rebuild", calls["rebuild"] + 1),
     )
     monkeypatch.setattr(sync_cmd.ui, "confirm", lambda _p: True)
     monkeypatch.setattr(sync_cmd.ui, "show_diff", lambda _d: None)
@@ -127,17 +127,17 @@ def test_sync_one_accepts_ai_merge_and_writes_live_file(
 
     monkeypatch.setattr(sync_cmd.remote, "fetch", lambda _url: (fetched, "http"))
     monkeypatch.setattr(sync_cmd.store, "hash_dir", lambda _p: "newhash")
-    monkeypatch.setattr(sync_cmd.store, "base_skill_text", lambda _n: "old base\n")
-    monkeypatch.setattr(sync_cmd.store, "has_flavor", lambda _n: True)
-    monkeypatch.setattr(sync_cmd.store, "flavor_path", lambda _n: flavor_path)
-    monkeypatch.setattr(sync_cmd.store, "live_skill_text", lambda _n: "old live\n")
+    monkeypatch.setattr(sync_cmd.store, "base_skill_text", lambda _n, scope="auto": "old base\n")
+    monkeypatch.setattr(sync_cmd.store, "has_flavor", lambda _n, scope="auto": True)
+    monkeypatch.setattr(sync_cmd.store, "flavor_path", lambda _n, scope="auto": flavor_path)
+    monkeypatch.setattr(sync_cmd.store, "live_skill_text", lambda _n, scope="auto": "old live\n")
     monkeypatch.setattr(
-        sync_cmd.store, "skill_dir", lambda _n: isolated_paths["store_dir"] / skill_name
+        sync_cmd.store, "skill_dir", lambda _n, scope="auto": isolated_paths["store_dir"] / skill_name
     )
     monkeypatch.setattr(
         sync_cmd.store,
         "update_base",
-        lambda _n, _d: calls.__setitem__("update", calls["update"] + 1),
+        lambda _n, _d, scope="auto": calls.__setitem__("update", calls["update"] + 1),
     )
     monkeypatch.setattr(sync_cmd.ui, "show_diff", lambda _d: None)
     monkeypatch.setattr(sync_cmd.ui, "info", lambda _m: None)
@@ -182,19 +182,19 @@ def test_sync_one_no_conflicts_preserves_live_local_flavor(
 
     monkeypatch.setattr(sync_cmd.remote, "fetch", lambda _url: (fetched, "http"))
     monkeypatch.setattr(sync_cmd.store, "hash_dir", lambda _p: "newhash")
-    monkeypatch.setattr(sync_cmd.store, "base_skill_text", lambda _n: old_base)
-    monkeypatch.setattr(sync_cmd.store, "has_flavor", lambda _n: True)
-    monkeypatch.setattr(sync_cmd.store, "flavor_path", lambda _n: flavor_path)
+    monkeypatch.setattr(sync_cmd.store, "base_skill_text", lambda _n, scope="auto": old_base)
+    monkeypatch.setattr(sync_cmd.store, "has_flavor", lambda _n, scope="auto": True)
+    monkeypatch.setattr(sync_cmd.store, "flavor_path", lambda _n, scope="auto": flavor_path)
     monkeypatch.setattr(
-        sync_cmd.store, "live_skill_text", lambda _n: (live_dir / "SKILL.md").read_text()
+        sync_cmd.store, "live_skill_text", lambda _n, scope="auto": (live_dir / "SKILL.md").read_text()
     )
     monkeypatch.setattr(
-        sync_cmd.store, "skill_dir", lambda _n: isolated_paths["store_dir"] / skill_name
+        sync_cmd.store, "skill_dir", lambda _n, scope="auto": isolated_paths["store_dir"] / skill_name
     )
     monkeypatch.setattr(
         sync_cmd.store,
         "update_base",
-        lambda _n, _d: calls.__setitem__("update", calls["update"] + 1),
+        lambda _n, _d, scope="auto": calls.__setitem__("update", calls["update"] + 1),
     )
     monkeypatch.setattr(sync_cmd.ui, "show_diff", lambda _d: None)
     monkeypatch.setattr(sync_cmd.ui, "info", lambda _m: None)
@@ -223,4 +223,4 @@ def test_sync_one_no_conflicts_preserves_live_local_flavor(
     assert choices and "accept ai merge" not in choices[0]
     assert "resolve with chat" not in choices[0]
     assert "Keep current live flavor" in (live_dir / "SKILL.md").read_text()
-    assert flavor_path.read_text().strip() == "Keep current live flavor"
+    assert flavor_path.read_text().strip() == "outdated flavor"

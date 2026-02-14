@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -34,16 +36,16 @@ COMMON_EDITORS = [
 ]
 
 
-def ensure_config() -> dict[str, Any]:
-    cfg = config.load()
+def ensure_config(scope: str = "auto") -> dict[str, Any]:
+    cfg = config.load(scope=scope)
     if not cfg.get("platforms"):
-        ui.warn("No config found. Run [bold]skillchef init[/bold] first.")
+        ui.warn("No config found for this scope. Run [bold]skillchef init --scope <scope>[/bold].")
         raise SystemExit(1)
     return cfg
 
 
-def open_editor(path: Path) -> None:
-    cfg = config.load()
+def open_editor(path: Path, scope: str = "auto") -> None:
+    cfg = config.load(scope=scope)
     ed = resolve_editor_command(config.editor(cfg))
     if not ed:
         ui.error(
@@ -51,6 +53,22 @@ def open_editor(path: Path) -> None:
         )
         raise SystemExit(1)
     subprocess.call([ed, str(path)])
+
+
+def open_in_file_manager(path: Path) -> None:
+    if sys.platform == "darwin":
+        # -R reveals the target in Finder instead of opening by file association.
+        cmd = ["open", "-R", str(path)]
+    elif os.name == "nt":
+        cmd = ["explorer", str(path)]
+    else:
+        cmd = ["xdg-open", str(path)]
+
+    try:
+        subprocess.call(cmd)
+    except FileNotFoundError:
+        ui.error("Could not open file manager from this environment.")
+        raise SystemExit(1)
 
 
 def resolve_editor_command(editor: str) -> str | None:

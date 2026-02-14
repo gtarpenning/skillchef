@@ -36,7 +36,7 @@ def test_semantic_merge_uses_selected_api_key(monkeypatch) -> None:
     monkeypatch.setattr(
         llm.config,
         "load",
-        lambda: {"model": "openai/gpt-5.2", "llm_api_key_env": "OPENAI_API_KEY"},
+        lambda scope="global": {"model": "openai/gpt-5.2", "llm_api_key_env": "OPENAI_API_KEY"},
     )
     monkeypatch.setattr(llm, "completion", fake_completion)
 
@@ -58,7 +58,9 @@ def test_semantic_merge_uses_ollama_api_base(monkeypatch) -> None:
 
     monkeypatch.setenv("OLLAMA_API_BASE", "http://localhost:11434")
     monkeypatch.setattr(
-        llm.config, "load", lambda: {"model": "ollama/llama3", "llm_api_key_env": "OLLAMA_API_BASE"}
+        llm.config,
+        "load",
+        lambda scope="global": {"model": "ollama/llama3", "llm_api_key_env": "OLLAMA_API_BASE"},
     )
     monkeypatch.setattr(llm, "completion", fake_completion)
 
@@ -81,7 +83,7 @@ def test_semantic_merge_aligns_model_with_selected_key(monkeypatch) -> None:
     monkeypatch.setattr(
         llm.config,
         "load",
-        lambda: {
+        lambda scope="global": {
             "model": "anthropic/claude-sonnet-4-5",
             "llm_api_key_env": "OPENAI_API_KEY",
         },
@@ -101,7 +103,7 @@ def test_semantic_merge_appends_log_file(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(
         llm.config,
         "load",
-        lambda: {"model": "openai/gpt-5.2", "llm_api_key_env": "OPENAI_API_KEY"},
+        lambda scope="global": {"model": "openai/gpt-5.2", "llm_api_key_env": "OPENAI_API_KEY"},
     )
     monkeypatch.setattr(
         llm,

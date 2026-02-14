@@ -5,11 +5,11 @@ from skillchef import merge, store, ui
 from .common import ensure_config, open_editor
 
 
-def run(skill_name: str | None) -> None:
+def run(skill_name: str | None, scope: str = "auto") -> None:
     ui.banner()
-    ensure_config()
+    ensure_config(scope=scope)
 
-    skills = store.list_skills()
+    skills = store.list_skills(scope=scope)
     if not skills:
         ui.info("No skills cooked yet.")
         return
@@ -18,14 +18,14 @@ def run(skill_name: str | None) -> None:
         names = [s["name"] for s in skills]
         skill_name = ui.choose("Which skill?", names)
 
-    fp = store.flavor_path(skill_name)
+    fp = store.flavor_path(skill_name, scope=scope)
     if not fp.exists():
         fp.write_text("# Add your local flavor below\n\n")
 
-    old_live = store.live_skill_text(skill_name)
-    open_editor(fp)
-    store.rebuild_live(skill_name)
-    new_live = store.live_skill_text(skill_name)
+    old_live = store.live_skill_text(skill_name, scope=scope)
+    open_editor(fp, scope=scope)
+    store.rebuild_live(skill_name, scope=scope)
+    new_live = store.live_skill_text(skill_name, scope=scope)
 
     diff_lines = merge.diff_texts(old_live, new_live, "before", "after")
     ui.show_diff(diff_lines)
