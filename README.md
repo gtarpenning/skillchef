@@ -6,7 +6,17 @@ Cook, flavor & sync agent skills from any source.
 
 ```
 uvx skillchef
-uv tool install skillchef
+```
+
+## Quickstart
+
+```bash
+uvx skillchef init
+uvx skillchef cook https://github.com/anthropics/skills/blob/main/skills/frontend-design/SKILL.md
+uvx skillchef flavor
+
+# next week
+uvx skillchef sync
 ```
 
 ## Usage
@@ -45,30 +55,11 @@ live/       ← merged result (base + flavor), symlinked into platform dirs
 ## Testing
 
 ```
-python -m pip install -e ".[test]"
+uv sync --extra test
 pytest -q
 ```
 
-## Linting and Type Checking
-
-```
-python -m pip install -e ".[dev]"
-ruff check .
-ty check
-```
-
-## Git Pre-commit Hook
-
-Enable the repo-managed hook once per clone:
-
-```
-git config core.hooksPath .githooks
-```
-
-On each commit it runs:
-- `uv run --extra dev ruff format`
-- `uv run --extra dev ruff check`
-- `uv run --extra dev ty check`
+Run pre-commit hooks manually: `./.githooks/pre-commit`.
 
 The suite lives in `tests/` and focuses on:
 - storage lifecycle (`cook`, `rebuild_live`, `remove`)
