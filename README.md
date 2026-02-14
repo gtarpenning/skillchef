@@ -2,13 +2,13 @@
 
 Cook, flavor & sync agent skills from any source.
 
-## Install
+## Chef it up
 
 ```
 uvx skillchef
 ```
 
-## Quickstart
+## Flavoring your first skill
 
 ```bash
 uvx skillchef init
@@ -19,7 +19,7 @@ uvx skillchef flavor
 uvx skillchef sync
 ```
 
-## How it works
+## How does the chef work his magic?
 
 Skills are stored in `~/.skillchef/store/<name>/` with three layers:
 
@@ -35,8 +35,37 @@ live/       ← merged result (base + flavor), symlinked into platform dirs
 
 `flavor` opens your editor to add local customizations that persist across syncs.
 
-## Remote sources
+## What can I cook?
 
 - **GitHub**: `https://github.com/user/repo/tree/main/path/to/skill`
 - **HTTP**: any direct URL to a SKILL.md file
 - **Local**: path to a skill directory or file on disk
+
+## What does the kitchen look like?
+
+Here is what your local setup currently looks like on disk:
+
+```text
+~/.skillchef/store/
+  frontend-design/
+    base/
+      SKILL.md        # upstream source snapshot
+    flavor.md         # your local customizations
+    live/
+      SKILL.md        # merged output (base + flavor)
+    meta.toml         # source + sync metadata
+```
+
+And those `live/` directories are what get linked into each platform:
+
+```text
+~/.codex/skills/
+  frontend-design -> ~/.skillchef/store/frontend-design/live
+~/.cursor/skills/
+  frontend-design -> ~/.skillchef/store/frontend-design/live
+...
+```
+
+When you run `sync`, SkillChef fetches the latest upstream `SKILL.md` and updates `base/SKILL.md`.
+Then it re-renders `live/SKILL.md` by applying your `flavor.md` on top, and updates `meta.toml` (hash + last sync timestamp).
+The symlink paths in `~/<>/skills/` keep pointing at the same `live/` directory.
