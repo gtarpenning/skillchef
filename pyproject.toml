@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "skillchef"
-version = "0.2.2"
+version = "0.2.3"
 description = "pyenv + git for agent skills. Cook, flavor, and sync skills from any source."
 requires-python = ">=3.11"
 license = "MIT"
