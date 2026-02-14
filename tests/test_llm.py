@@ -120,3 +120,36 @@ def test_semantic_merge_appends_log_file(monkeypatch, tmp_path: Path) -> None:
     assert "model: openai/gpt-5.2" in log_text
     assert "=== OLD BASE ===" in log_text
     assert "merged output" in log_text
+
+
+def test_wizard_chat_uses_selected_key_and_context(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_completion(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="Jeremy answer"))]
+        )
+
+    monkeypatch.setenv("OPENAI_API_KEY", "openai-token")
+    monkeypatch.setattr(
+        llm.config,
+        "load",
+        lambda scope="global": {"model": "openai/gpt-5.2", "llm_api_key_env": "OPENAI_API_KEY"},
+    )
+    monkeypatch.setattr(llm, "completion", fake_completion)
+
+    result = llm.wizard_chat(
+        "What happens here?",
+        step_label="Step 2/4 - Add local flavor",
+        step_context="Flavor is written and live is rebuilt.",
+        project_context="[AGENTS.md]\\nTest context",
+    )
+
+    assert result == "Jeremy answer"
+    assert captured["api_key"] == "openai-token"
+    messages = captured["messages"]
+    assert isinstance(messages, list)
+    assert messages[0]["role"] == "system"
+    assert "Chef Jeremy" in messages[0]["content"]
+    assert "Step 2/4 - Add local flavor" in messages[1]["content"]

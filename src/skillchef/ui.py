@@ -31,6 +31,53 @@ def info(msg: str) -> None:
     console.print(f"[dim]→[/dim] {msg}")
 
 
+def section_title(title: str) -> None:
+    console.print(f"[bold]{title}[/bold]")
+
+
+def wizard_message(title: str, body: str) -> None:
+    console.print()
+    console.print(Panel(body.strip(), title=title, border_style="cyan", padding=(1, 2)))
+    console.print()
+
+
+def wizard_step(step_number: int, total_steps: int, title: str, body: str) -> None:
+    section_title(f"Step {step_number}/{total_steps}: {title}")
+    console.print()
+    console.print(Panel(body.strip(), border_style="dim", padding=(1, 2)))
+    console.print()
+
+
+def show_command(command: str, *, title: str = "Run This Command") -> None:
+    console.print(
+        Panel(
+            Syntax(command, "bash", theme="monokai", word_wrap=True),
+            title=title,
+            border_style="cyan",
+            padding=(0, 1),
+        )
+    )
+
+
+def require_exact_command(
+    command: str,
+    *,
+    prompt: str = "",
+    macros: dict[str, Callable[[], None]] | None = None,
+) -> None:
+    show_command(command)
+    available_macros = macros or {}
+    while True:
+        typed = ask(prompt, default="").strip()
+        if typed == command:
+            return
+        macro_action = available_macros.get(typed)
+        if macro_action is not None:
+            macro_action()
+            continue
+        warn("Incorrect command, try again.")
+
+
 def warn(msg: str) -> None:
     console.print(f"[yellow]![/yellow] {msg}")
 

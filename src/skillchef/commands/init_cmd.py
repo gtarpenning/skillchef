@@ -2,13 +2,19 @@ from __future__ import annotations
 
 import os
 
-from skillchef import config, ui
-from skillchef.llm import default_model_for_key, detect_keys
+from skillchef import config, remote, ui, wizard
+from skillchef.llm import default_model_for_key, detect_keys, wizard_chat
 
 from .common import discover_editor_suggestions
 
+README_EXAMPLE_SOURCE = wizard.README_EXAMPLE_SOURCE
+WIZARD_UPSTREAM_ROOT = wizard.WIZARD_UPSTREAM_ROOT
+WIZARD_UPDATE_MARKER = wizard.WIZARD_UPDATE_MARKER
+WIZARD_FLAVOR_TEXT = wizard.WIZARD_FLAVOR_TEXT
+WIZARD_TOTAL_STEPS = wizard.WIZARD_TOTAL_STEPS
 
-def run(scope: str = "auto") -> None:
+
+def run(scope: str = "auto", run_wizard: bool | None = None) -> None:
     ui.banner()
     ui.console.print()
 
@@ -75,3 +81,45 @@ def run(scope: str = "auto") -> None:
     ui.show_config_summary(cfg)
     ui.console.print()
     ui.success(f"Config saved to [bold]{config.config_file_path(scope=scope)}[/bold]")
+    if run_wizard is True:
+        try:
+            run_example_wizard(cfg, scope=scope)
+        except Exception as e:
+            ui.warn(f"Onboarding wizard failed: {e}")
+    elif run_wizard is None:
+        _maybe_run_example_wizard(cfg, scope=scope)
+
+
+def _maybe_run_example_wizard(cfg: dict[str, object], *, scope: str) -> None:
+    try:
+        wizard.maybe_run_example_wizard(cfg, scope=scope, run_example_wizard_fn=run_example_wizard)
+    except Exception as e:
+        ui.warn(f"Onboarding wizard failed: {e}")
+
+
+def run_example_wizard(cfg: dict[str, object], *, scope: str) -> None:
+    wizard.run_example_wizard(
+        cfg,
+        scope=scope,
+        fetch_fn=remote.fetch,
+        chat_macro_fn=_run_wizard_chat,
+    )
+
+
+def _run_wizard_chat(
+    *,
+    step_number: int,
+    step_title: str,
+    step_context: str,
+    step_command: str | None = None,
+    scope: str = "auto",
+) -> None:
+    wizard.run_wizard_chat(
+        step_number=step_number,
+        step_title=step_title,
+        step_context=step_context,
+        step_command=step_command,
+        scope=scope,
+        detect_keys_fn=detect_keys,
+        wizard_chat_fn=wizard_chat,
+    )

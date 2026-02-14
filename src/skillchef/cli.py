@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import click
 
+from skillchef import config, ui
 from skillchef.commands import (
     cook_cmd,
     flavor_cmd,
@@ -27,17 +30,49 @@ def with_scope_option(help_text: str = "Storage scope to use."):
     )
 
 
-@click.group()
-def main() -> None:
+@click.group(invoke_without_command=True)
+@click.pass_context
+def main(ctx: click.Context) -> None:
     """skillchef — cook, flavor & sync your agent skills."""
-    pass
+    if ctx.invoked_subcommand is not None:
+        return
+    if _is_first_run():
+        _run_first_time_entrypoint()
+        return
+    click.echo(ctx.get_help())
+
+
+def _is_first_run(cwd: Path | None = None) -> bool:
+    workdir = cwd or Path.cwd()
+    global_home_exists = config.SKILLCHEF_HOME.exists()
+    project_home_exists = (workdir / ".skillchef").exists()
+    return not global_home_exists and not project_home_exists
+
+
+def _run_first_time_entrypoint() -> None:
+    ui.banner()
+    ui.console.print()
+    ui.info("SkillChef has not been set up yet. Choose one option to get started:")
+    choice = ui.choose(
+        "Get started",
+        ["init + onboarding wizard (recommended)", "init only"],
+    )
+    if choice == "init + onboarding wizard (recommended)":
+        init_cmd.run(scope="auto", run_wizard=True)
+        return
+    init_cmd.run(scope="auto", run_wizard=False)
 
 
 @main.command()
+@click.option(
+    "--wizard/--no-wizard",
+    default=None,
+    help="Run the onboarding wizard after setup. If omitted, skillchef will ask.",
+)
 @with_scope_option("Where to save config.")
-def init(scope: str) -> None:
+def init(wizard: bool | None, scope: str) -> None:
     """First-time setup: platforms, editor, model."""
-    init_cmd.run(scope=scope)
+    init_cmd.run(scope=scope, run_wizard=wizard)
 
 
 @main.command()

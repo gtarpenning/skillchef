@@ -20,6 +20,8 @@ uvx skillchef inspect frontend-design
 uvx skillchef sync
 ```
 
+`init` offers an optional guided onboarding wizard after setup. It uses the `frontend-design` skill and walks through `cook -> flavor -> sync` so you can see flavor-preserving sync behavior end to end. If you already set up skillchef and want to run it directly, use `uvx skillchef init --wizard`.
+
 ## How does the chef work his magic?
 
 Skills are stored in `~/.skillchef/store/<name>/` with three layers:

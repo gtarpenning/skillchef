@@ -57,6 +57,17 @@ Rules:
 
 === MERGED RESULT ==="""
 
+WIZARD_CHAT_SYSTEM_PROMPT = """You are Chef Jeremy, an onboarding wizard-chef for SkillChef.
+You help users understand what is happening in the current onboarding step.
+
+Style rules:
+- Be concise, direct, and practical.
+- Explain exactly what command/action is happening and why it matters.
+- Use plain language; avoid buzzwords and fluff.
+- If the user sounds confused, offer a short next action.
+- Never invent repository facts that are not present in the provided context.
+"""
+
 
 def detect_keys() -> list[tuple[str, str]]:
     return [(k, v) for k, v in LLM_KEY_MAP if os.environ.get(k)]
@@ -147,6 +158,63 @@ def semantic_merge(
         _append_llm_log(
             model=model,
             prompt=prompt,
+            response=f"[ERROR] {type(exc).__name__}: {exc}",
+        )
+        raise
+
+
+def wizard_chat(
+    question: str,
+    *,
+    step_label: str,
+    step_context: str,
+    project_context: str = "",
+    model: str | None = None,
+    scope: str = "global",
+) -> str:
+    cfg = config.load(scope=scope)
+    configured_model = cfg.get("model", "anthropic/claude-sonnet-4-5")
+    configured_env = cfg.get("llm_api_key_env", "")
+    key = selected_key(configured_env)
+    env_var = key[0] if key else None
+    resolved_model = _resolve_model(configured_model, env_var, model)
+
+    completion_kwargs: dict[str, str | int | list[dict[str, str]]] = {}
+    if key:
+        env_var, _provider = key
+        value = os.environ.get(env_var, "")
+        if value:
+            if env_var == "OLLAMA_API_BASE":
+                completion_kwargs["api_base"] = value
+            else:
+                completion_kwargs["api_key"] = value
+
+    user_prompt = (
+        f"Current wizard step: {step_label}\n\n"
+        f"Step context:\n{step_context.strip()}\n\n"
+        f"Project context:\n{project_context.strip()}\n\n"
+        f"User question:\n{question.strip()}\n"
+    )
+    try:
+        resp = completion(
+            model=resolved_model,
+            messages=[
+                {"role": "system", "content": WIZARD_CHAT_SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            **completion_kwargs,
+        )
+        content = resp.choices[0].message.content.strip()
+        _append_llm_log(
+            model=resolved_model,
+            prompt=WIZARD_CHAT_SYSTEM_PROMPT + "\n\n" + user_prompt,
+            response=content,
+        )
+        return content
+    except Exception as exc:
+        _append_llm_log(
+            model=resolved_model,
+            prompt=WIZARD_CHAT_SYSTEM_PROMPT + "\n\n" + user_prompt,
             response=f"[ERROR] {type(exc).__name__}: {exc}",
         )
         raise

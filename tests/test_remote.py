@@ -9,11 +9,7 @@ import pytest
 from skillchef import remote
 
 
-def test_classify_distinguishes_local_http_and_github(tmp_path: Path) -> None:
-    local = tmp_path / "SKILL.md"
-    local.write_text("x")
-
-    assert remote.classify(str(local)) == "local"
+def test_classify_recognizes_remote_sources() -> None:
     assert remote.classify("https://example.com/SKILL.md") == "http"
     assert (
         remote.classify("https://github.com/acme/repo/blob/main/skills/demo/SKILL.md") == "github"
@@ -21,31 +17,26 @@ def test_classify_distinguishes_local_http_and_github(tmp_path: Path) -> None:
     assert remote.classify("https://github.com/acme/repo/tree/main/skills/demo") == "github"
 
 
-def test_classify_rejects_non_file_remote_urls() -> None:
-    with pytest.raises(ValueError, match="direct file URL"):
-        remote.classify("https://example.com/skills/")
-    with pytest.raises(ValueError, match="/blob|/tree"):
-        remote.classify("https://github.com/acme/repo")
+def test_classify_recognizes_local_source(tmp_path: Path) -> None:
+    local = tmp_path / "SKILL.md"
+    local.write_text("x")
+    assert remote.classify(str(local)) == "local"
 
 
-def test_classify_rejects_unknown_source() -> None:
-    with pytest.raises(ValueError, match="Cannot classify source"):
-        remote.classify("definitely-not-a-path-or-url")
+def test_classify_rejects_invalid_sources() -> None:
+    invalid_sources = [
+        ("https://example.com/skills/", "direct file URL"),
+        ("https://github.com/acme/repo", "/blob|/tree"),
+        ("definitely-not-a-path-or-url", "Cannot classify source"),
+    ]
+    for source, error_match in invalid_sources:
+        with pytest.raises(ValueError, match=error_match):
+            remote.classify(source)
 
 
-def test_fetch_local_file_preserves_filename(tmp_path: Path) -> None:
+def test_fetch_and_local_discovery_helpers(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     src = tmp_path / "my-skill.md"
     src.write_text("content")
-
-    fetched = remote._fetch_local(str(src))
-
-    copied = fetched / "my-skill.md"
-    assert fetched.name == "skill"
-    assert copied.exists()
-    assert copied.read_text() == "content"
-
-
-def test_fetch_http_uses_download_helper(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[tuple[str, Path]] = []
 
     def fake_download(url: str, dest: Path) -> None:
@@ -54,43 +45,39 @@ def test_fetch_http_uses_download_helper(monkeypatch: pytest.MonkeyPatch) -> Non
 
     monkeypatch.setattr(remote, "_download_raw", fake_download)
 
-    fetched = remote._fetch_http("https://example.com/path/SKILL.md")
-    file_path = fetched / "SKILL.md"
+    fetched_local = remote._fetch_local(str(src))
+    fetched_http = remote._fetch_http("https://example.com/path/SKILL.md")
+
+    copied = fetched_local / "my-skill.md"
+    assert fetched_local.name == "skill"
+    assert copied.exists()
+    assert copied.read_text() == "content"
 
     assert len(calls) == 1
     assert calls[0][0] == "https://example.com/path/SKILL.md"
+    file_path = fetched_http / "SKILL.md"
     assert file_path.exists()
     assert "http-skill" in file_path.read_text()
 
-
-def test_local_skill_candidates_finds_nested_skill_files(tmp_path: Path) -> None:
     root = tmp_path / "skills"
     (root / "a").mkdir(parents=True)
     (root / "b").mkdir(parents=True)
     (root / "a" / "SKILL.md").write_text("a")
     (root / "b" / "SKILL.md").write_text("b")
 
-    candidates = remote.local_skill_candidates(str(root))
-
-    assert len(candidates) == 2
-    assert all(p.name == "SKILL.md" for p in candidates)
+    assert len(remote.local_skill_candidates(str(root))) == 2
 
 
-def test_parse_github_source_supports_blob_and_tree() -> None:
+def test_github_parsing_and_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
     blob = remote._parse_github_source(
         "https://github.com/acme/repo/blob/main/skills/demo/SKILL.md"
     )
     tree = remote._parse_github_source("https://github.com/acme/repo/tree/main/skills/demo")
-
     assert blob == ("acme", "repo", "main", "skills/demo/SKILL.md")
     assert tree == ("acme", "repo", "main", "skills/demo")
 
-
-def test_source_metadata_for_github_uses_resolved_commit(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(remote, "_resolve_github_commit", lambda _o, _r, _ref: "abc123")
-
     meta = remote.source_metadata("https://github.com/acme/repo/blob/main/skills/demo/SKILL.md")
-
     assert meta["source_type"] == "github"
     assert meta["source_repo"] == "acme/repo"
     assert meta["source_path"] == "skills/demo/SKILL.md"

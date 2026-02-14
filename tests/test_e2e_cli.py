@@ -21,6 +21,7 @@ def _mute_ui(monkeypatch) -> None:
         "warn",
         "error",
         "show_diff",
+        "show_command",
         "show_platforms",
         "show_detected_keys",
         "show_config_summary",
@@ -50,7 +51,10 @@ def test_e2e_init_cook_sync_without_flavor(
         return default
 
     monkeypatch.setattr("skillchef.ui.ask", ask)
-    monkeypatch.setattr("skillchef.ui.confirm", lambda _p, default=True: True)
+    monkeypatch.setattr(
+        "skillchef.ui.confirm",
+        lambda prompt, default=True: False if "Run the onboarding wizard now?" in prompt else True,
+    )
 
     runner = CliRunner()
     assert runner.invoke(cli.main, ["init"]).exit_code == 0
@@ -59,6 +63,63 @@ def test_e2e_init_cook_sync_without_flavor(
     _write_skill_dir(source, body="base v2")
     assert runner.invoke(cli.main, ["sync", "demo", "--no-ai"]).exit_code == 0
     assert "base v2" in store.live_skill_text("demo")
+
+
+def test_e2e_init_with_optional_example_wizard(
+    isolated_paths: dict[str, Path], tmp_path: Path, monkeypatch
+) -> None:
+    _mute_ui(monkeypatch)
+    monkeypatch.setattr("skillchef.ui.require_exact_command", lambda *_a, **_k: None)
+    source = tmp_path / "frontend-design-source"
+    _write_skill_dir(source, name="frontend-design", body="base v1")
+
+    monkeypatch.setattr(init_cmd, "detect_keys", lambda: [])
+    monkeypatch.setattr(init_cmd, "discover_editor_suggestions", lambda: [])
+    monkeypatch.setattr("skillchef.ui.multi_choose", lambda _p, _c: ["codex"])
+
+    def choose(prompt: str, choices: list[str]) -> str:
+        if "Default scope" in prompt:
+            return "global"
+        if "How to handle?" in prompt:
+            return "accept update"
+        return choices[0]
+
+    monkeypatch.setattr("skillchef.ui.choose", choose)
+
+    def ask(prompt: str, default: str = "") -> str:
+        if "Preferred editor" in prompt:
+            return "vim"
+        if "AI model for semantic merge" in prompt:
+            return "openai/gpt-5.2"
+        return default
+
+    monkeypatch.setattr("skillchef.ui.ask", ask)
+
+    def confirm(prompt: str, default: bool = True) -> bool:
+        if "Run the onboarding wizard now?" in prompt:
+            return True
+        if "Open your editor to tweak this flavor now?" in prompt:
+            return False
+        return default
+
+    monkeypatch.setattr("skillchef.ui.confirm", confirm)
+
+    original_fetch = init_cmd.remote.fetch
+
+    def fake_fetch(source_url: str):
+        if source_url == init_cmd.README_EXAMPLE_SOURCE:
+            return original_fetch(str(source))
+        return original_fetch(source_url)
+
+    monkeypatch.setattr(init_cmd.remote, "fetch", fake_fetch)
+
+    runner = CliRunner()
+    assert runner.invoke(cli.main, ["init"]).exit_code == 0
+
+    flavor = store.flavor_path("frontend-design").read_text()
+    live = store.live_skill_text("frontend-design")
+    assert init_cmd.WIZARD_FLAVOR_TEXT.strip() in flavor
+    assert init_cmd.WIZARD_UPDATE_MARKER in live
 
 
 def test_e2e_sync_with_flavor_preserves_flavor_text(

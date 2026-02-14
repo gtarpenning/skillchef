@@ -38,3 +38,34 @@ def test_bind_escape_to_cancel_exits_with_none() -> None:
     handler = calls["handler"]
     handler(DummyEvent())
     assert calls["result"] is None
+
+
+def test_require_exact_command_accepts_macro(monkeypatch) -> None:
+    asked = iter(["chat", "uvx skillchef flavor frontend-design"])
+    macro_calls = {"count": 0}
+    warnings: list[str] = []
+
+    monkeypatch.setattr(ui, "show_command", lambda *_a, **_k: None)
+    monkeypatch.setattr(ui, "ask", lambda *_a, **_k: next(asked))
+    monkeypatch.setattr(ui, "warn", lambda msg: warnings.append(msg))
+
+    ui.require_exact_command(
+        "uvx skillchef flavor frontend-design",
+        macros={"chat": lambda: macro_calls.__setitem__("count", macro_calls["count"] + 1)},
+    )
+
+    assert macro_calls["count"] == 1
+    assert warnings == []
+
+
+def test_require_exact_command_still_warns_for_unknown_input(monkeypatch) -> None:
+    asked = iter(["oops", "uvx skillchef sync frontend-design --no-ai"])
+    warnings: list[str] = []
+
+    monkeypatch.setattr(ui, "show_command", lambda *_a, **_k: None)
+    monkeypatch.setattr(ui, "ask", lambda *_a, **_k: next(asked))
+    monkeypatch.setattr(ui, "warn", lambda msg: warnings.append(msg))
+
+    ui.require_exact_command("uvx skillchef sync frontend-design --no-ai")
+
+    assert warnings == ["Incorrect command, try again."]
