@@ -17,6 +17,7 @@ WIZARD_TOTAL_STEPS = wizard.WIZARD_TOTAL_STEPS
 def run(scope: str = "auto", run_wizard: bool | None = None) -> None:
     ui.banner()
     ui.console.print()
+    existing_cfg = config.load(scope=scope)
 
     ui.info("Scanning for agent platforms...\n")
     ui.show_platforms(config.PLATFORMS)
@@ -65,8 +66,11 @@ def run(scope: str = "auto", run_wizard: bool | None = None) -> None:
     else:
         editor = ui.ask("Preferred editor", default=default_editor)
 
-    default_model = default_model_for_key(selected_key_env)
-    model = ui.ask("AI model for semantic merge", default=default_model)
+    if selected_key_env:
+        default_model = default_model_for_key(selected_key_env)
+        model = ui.ask("AI model for semantic merge", default=default_model)
+    else:
+        model = str(existing_cfg.get("model", config.DEFAULT_CONFIG["model"]))
 
     cfg = {
         "platforms": platforms,

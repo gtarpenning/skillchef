@@ -108,3 +108,61 @@ def test_run_wizard_chat_calls_llm(monkeypatch) -> None:
     assert "Displayed command:" in captured["project_context"]
     assert "uvx skillchef flavor frontend-design" in captured["project_context"]
     assert any("Jeremy:" in line for line in printed)
+
+
+def test_init_without_keys_skips_model_prompt(isolated_paths: dict[str, Path], monkeypatch) -> None:
+    prompts: list[str] = []
+
+    monkeypatch.setattr(init_cmd, "detect_keys", lambda: [])
+    monkeypatch.setattr(init_cmd, "discover_editor_suggestions", lambda: [])
+    monkeypatch.setattr("skillchef.ui.banner", lambda: None)
+    monkeypatch.setattr("skillchef.ui.info", lambda _msg: None)
+    monkeypatch.setattr("skillchef.ui.success", lambda _msg: None)
+    monkeypatch.setattr("skillchef.ui.warn", lambda _msg: None)
+    monkeypatch.setattr("skillchef.ui.show_platforms", lambda _p: None)
+    monkeypatch.setattr("skillchef.ui.show_detected_keys", lambda _k: None)
+    monkeypatch.setattr("skillchef.ui.show_config_summary", lambda _cfg: None)
+    monkeypatch.setattr("skillchef.ui.multi_choose", lambda _p, _c: ["codex"])
+    monkeypatch.setattr("skillchef.ui.choose", lambda _p, _c: "global")
+
+    def ask(prompt: str, default: str = "") -> str:
+        prompts.append(prompt)
+        if "Preferred editor" in prompt:
+            return "vim"
+        return default
+
+    monkeypatch.setattr("skillchef.ui.ask", ask)
+
+    init_cmd.run(scope="global", run_wizard=False)
+
+    assert "AI model for semantic merge" not in prompts
+
+
+def test_init_with_key_prompts_for_model(isolated_paths: dict[str, Path], monkeypatch) -> None:
+    prompts: list[str] = []
+
+    monkeypatch.setattr(init_cmd, "detect_keys", lambda: [("OPENAI_API_KEY", "OpenAI")])
+    monkeypatch.setattr(init_cmd, "discover_editor_suggestions", lambda: [])
+    monkeypatch.setattr("skillchef.ui.banner", lambda: None)
+    monkeypatch.setattr("skillchef.ui.info", lambda _msg: None)
+    monkeypatch.setattr("skillchef.ui.success", lambda _msg: None)
+    monkeypatch.setattr("skillchef.ui.warn", lambda _msg: None)
+    monkeypatch.setattr("skillchef.ui.show_platforms", lambda _p: None)
+    monkeypatch.setattr("skillchef.ui.show_detected_keys", lambda _k: None)
+    monkeypatch.setattr("skillchef.ui.show_config_summary", lambda _cfg: None)
+    monkeypatch.setattr("skillchef.ui.multi_choose", lambda _p, _c: ["codex"])
+    monkeypatch.setattr("skillchef.ui.choose", lambda _p, _c: "global")
+
+    def ask(prompt: str, default: str = "") -> str:
+        prompts.append(prompt)
+        if "Preferred editor" in prompt:
+            return "vim"
+        if "AI model for semantic merge" in prompt:
+            return "openai/gpt-5.2"
+        return default
+
+    monkeypatch.setattr("skillchef.ui.ask", ask)
+
+    init_cmd.run(scope="global", run_wizard=False)
+
+    assert "AI model for semantic merge" in prompts

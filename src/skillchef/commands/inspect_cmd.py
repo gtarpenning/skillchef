@@ -14,9 +14,7 @@ def run(skill_name: str | None, scope: str = "auto") -> None:
     meta = _meta_for_name(skill_name, scope=scope) if skill_name else _meta_from_prompt(scope=scope)
     if meta is None:
         return
-    inspect_skill_from_meta(meta, scope=scope)
-    if ui.can_use_interactive_selector():
-        _action_loop(meta, scope=scope)
+    inspect_skill_from_meta_with_actions(meta, scope=scope)
 
 
 def inspect_skill_from_meta(meta: dict[str, Any], scope: str = "auto") -> None:
@@ -31,6 +29,12 @@ def inspect_skill_from_meta(meta: dict[str, Any], scope: str = "auto") -> None:
             ui.info("Showing compact preview. Choose 'see full skill?' for the full file.")
     except FileNotFoundError:
         ui.warn(f"Could not find live SKILL.md for '{name}'.")
+
+
+def inspect_skill_from_meta_with_actions(meta: dict[str, Any], scope: str = "auto") -> None:
+    inspect_skill_from_meta(meta, scope=scope)
+    if ui.can_use_interactive_selector():
+        _action_loop(meta, scope=scope)
 
 
 def _meta_for_name(skill_name: str, scope: str = "auto") -> dict[str, Any]:

@@ -38,7 +38,7 @@ def test_run_viewer_shows_selected_skill_until_exit(monkeypatch) -> None:
     monkeypatch.setattr(list_cmd.ui, "info", lambda _m: None)
     monkeypatch.setattr(
         list_cmd.inspect_cmd,
-        "inspect_skill_from_meta",
+        "inspect_skill_from_meta_with_actions",
         lambda meta, scope="auto": inspected.append(str(meta["name"])),
     )
 

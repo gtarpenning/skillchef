@@ -24,4 +24,4 @@ def _run_viewer(skills: list[dict[str, object]], scope: str = "auto") -> None:
             return
 
         skill = skill_by_name[selected]
-        inspect_cmd.inspect_skill_from_meta(skill, scope=scope)
+        inspect_cmd.inspect_skill_from_meta_with_actions(skill, scope=scope)
