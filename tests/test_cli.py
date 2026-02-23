@@ -126,3 +126,41 @@ def test_cli_inspect_dispatches_to_command(monkeypatch) -> None:
         assert result.exit_code == 0
         assert captured["skill_name"] == expected_skill_name
         assert captured["scope"] == "auto"
+
+
+def test_cli_flavor_dispatches_named_options(monkeypatch) -> None:
+    cases = [
+        (
+            ["flavor", "hello-chef"],
+            {"skill_name": "hello-chef", "flavor_name": None, "use_flavor": None},
+        ),
+        (
+            ["flavor", "hello-chef", "--name", "project-a"],
+            {"skill_name": "hello-chef", "flavor_name": "project-a", "use_flavor": None},
+        ),
+        (
+            ["flavor", "hello-chef", "--use", "project-a"],
+            {"skill_name": "hello-chef", "flavor_name": None, "use_flavor": "project-a"},
+        ),
+    ]
+
+    for args, expected in cases:
+        captured: dict[str, object] = {}
+        monkeypatch.setattr(
+            cli.flavor_cmd,
+            "run",
+            lambda skill_name, flavor_name=None, use_flavor=None, scope="auto", payload=captured: (
+                payload.setdefault("skill_name", skill_name),
+                payload.setdefault("flavor_name", flavor_name),
+                payload.setdefault("use_flavor", use_flavor),
+                payload.setdefault("scope", scope),
+            ),
+        )
+
+        result = CliRunner().invoke(cli.main, args)
+
+        assert result.exit_code == 0
+        assert captured["skill_name"] == expected["skill_name"]
+        assert captured["flavor_name"] == expected["flavor_name"]
+        assert captured["use_flavor"] == expected["use_flavor"]
+        assert captured["scope"] == "auto"

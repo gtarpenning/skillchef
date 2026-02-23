@@ -99,10 +99,14 @@ def sync(skill_name: str | None, no_ai: bool, scope: str) -> None:
 
 @main.command()
 @click.argument("skill_name", required=False)
+@click.option("--name", "flavor_name", help="Edit/create a named flavor and set it active.")
+@click.option("--use", "use_flavor", help="Switch active flavor without editing.")
 @with_scope_option()
-def flavor(skill_name: str | None, scope: str) -> None:
+def flavor(
+    skill_name: str | None, flavor_name: str | None, use_flavor: str | None, scope: str
+) -> None:
     """Add or edit a local flavor for a skill."""
-    flavor_cmd.run(skill_name, scope=scope)
+    flavor_cmd.run(skill_name, flavor_name=flavor_name, use_flavor=use_flavor, scope=scope)
 
 
 @main.command(name="list")

@@ -31,6 +31,7 @@ def test_cook_layout_and_remove_cleanup(isolated_paths: dict[str, Path], tmp_pat
     assert meta["name"] == "hello-chef"
     assert meta["remote_type"] == "http"
     assert meta["platforms"] == ["codex"]
+    assert meta["enabled"] is True
     assert meta["base_sha256"] == store.hash_dir(base)
     assert meta["source_type"] == "http"
     assert meta["source_url"] == "https://example.com/hello"
@@ -125,3 +126,66 @@ def test_platform_path_guardrails(isolated_paths: dict[str, Path], tmp_path: Pat
     link.mkdir()
     with pytest.raises(RuntimeError, match="Refusing to remove non-symlink"):
         store.remove("other-chef")
+
+
+def test_set_enabled_toggles_symlink(isolated_paths: dict[str, Path], tmp_path: Path) -> None:
+    store.cook("hello-chef", _make_fetched_skill(tmp_path), "local", "local", ["codex"])
+    link = isolated_paths["platform_codex"] / "hello-chef"
+    live = store.skill_dir("hello-chef") / "live"
+
+    assert link.is_symlink()
+    assert link.resolve() == live.resolve()
+    assert store.load_meta("hello-chef")["enabled"] is True
+
+    store.set_enabled("hello-chef", enabled=False)
+    assert not link.exists()
+    assert store.load_meta("hello-chef")["enabled"] is False
+
+    store.set_enabled("hello-chef", enabled=True)
+    assert link.is_symlink()
+    assert link.resolve() == live.resolve()
+    assert store.load_meta("hello-chef")["enabled"] is True
+
+
+def test_load_meta_defaults_enabled_for_legacy_meta(isolated_paths: dict[str, Path]) -> None:
+    legacy_dir = store.skill_dir("legacy")
+    legacy_dir.mkdir(parents=True)
+    (legacy_dir / "meta.toml").write_text(
+        'name = "legacy"\nremote_url = "https://example.com"\nplatforms = ["codex"]\n'
+    )
+
+    meta = store.load_meta("legacy")
+    assert meta["enabled"] is True
+
+
+def test_flavor_path_legacy_fallback_and_named_flavors(
+    isolated_paths: dict[str, Path], tmp_path: Path
+) -> None:
+    store.cook("hello-chef", _make_fetched_skill(tmp_path), "local", "local", ["codex"])
+    legacy = store.skill_dir("hello-chef") / "flavor.md"
+    legacy.write_text("legacy default\n")
+
+    assert store.active_flavor_name("hello-chef") == "default"
+    assert store.flavor_path("hello-chef") == legacy
+    assert store.flavor_exists("hello-chef", "default")
+
+    store.set_active_flavor("hello-chef", "project-a")
+    project_path = store.named_flavor_path("hello-chef", "project-a")
+    project_path.parent.mkdir(parents=True, exist_ok=True)
+    project_path.write_text("project flavor\n")
+
+    assert store.active_flavor_name("hello-chef") == "project-a"
+    assert store.flavor_path("hello-chef") == project_path
+    assert store.flavor_exists("hello-chef", "project-a")
+    assert store.list_flavor_names("hello-chef") == ["default", "project-a"]
+
+
+def test_load_meta_defaults_active_flavor_for_legacy_meta(isolated_paths: dict[str, Path]) -> None:
+    legacy_dir = store.skill_dir("legacy-two")
+    legacy_dir.mkdir(parents=True)
+    (legacy_dir / "meta.toml").write_text(
+        'name = "legacy-two"\nremote_url = "https://example.com"\nplatforms = ["codex"]\n'
+    )
+
+    meta = store.load_meta("legacy-two")
+    assert meta["active_flavor"] == "default"

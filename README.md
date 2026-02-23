@@ -34,9 +34,18 @@ live/       ← merged result (base + flavor), symlinked into platform dirs
 
 `cook` fetches a skill and symlinks it into your configured platform directories (`~/.codex/skills/`, etc).
 
+`list` shows whether each cooked skill is `[enabled|disabled]`; in interactive mode you can disable/enable a skill without removing it.
+
 `sync` checks the remote for changes. If your skill has a flavor, it shows the upstream diff and proposes a semantic merge via LLM (auto-detected from env API keys).
 
 `flavor` opens your editor to add local customizations that persist across syncs.
+You can keep multiple named flavors per skill:
+
+```bash
+uvx skillchef flavor frontend-design --name project-a   # create/edit + set active
+uvx skillchef flavor frontend-design --name project-b   # create/edit + set active
+uvx skillchef flavor frontend-design --use project-a    # switch active flavor
+```
 
 ## What can I cook?
 

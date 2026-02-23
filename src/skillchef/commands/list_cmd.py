@@ -23,5 +23,40 @@ def _run_viewer(skills: list[dict[str, object]], scope: str = "auto") -> None:
         if not selected:
             return
 
-        skill = skill_by_name[selected]
-        inspect_cmd.inspect_skill_from_meta_with_actions(skill, scope=scope)
+        _run_skill_actions(selected, skill_by_name, scope=scope)
+
+
+def _run_skill_actions(
+    name: str, skill_by_name: dict[str, dict[str, object]], scope: str = "auto"
+) -> None:
+    while True:
+        meta = skill_by_name[name]
+        enabled = bool(meta.get("enabled", True))
+        toggle = "disable" if enabled else "enable"
+        action = ui.choose_optional("Action", ["inspect", toggle, "back"])
+        if action in (None, "back"):
+            return
+
+        if action == "inspect":
+            inspect_cmd.inspect_skill_from_meta_with_actions(meta, scope=scope)
+            continue
+
+        _set_enabled(name, enabled=not enabled, scope=scope, skill_by_name=skill_by_name)
+
+
+def _set_enabled(
+    name: str,
+    *,
+    enabled: bool,
+    scope: str,
+    skill_by_name: dict[str, dict[str, object]],
+) -> None:
+    desired = "enabled" if enabled else "disabled"
+    try:
+        store.set_enabled(name, enabled=enabled, scope=scope)
+    except Exception as e:
+        ui.error(f"Failed to set '{name}' as {desired}: {e}")
+        return
+
+    skill_by_name[name]["enabled"] = enabled
+    ui.success(f"{name} is now {desired}.")

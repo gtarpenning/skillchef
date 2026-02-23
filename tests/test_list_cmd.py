@@ -29,19 +29,29 @@ def test_run_prints_table_and_skips_viewer_when_non_interactive(monkeypatch) -> 
 
 
 def test_run_viewer_shows_selected_skill_until_exit(monkeypatch) -> None:
-    skills = [{"name": "hello-chef", "remote_url": "https://example.com/hello"}]
+    skills = [{"name": "hello-chef", "remote_url": "https://example.com/hello", "enabled": True}]
     inspected: list[str] = []
+    toggles: list[tuple[str, bool, str]] = []
+    messages: list[str] = []
 
-    selections = iter(["hello-chef", None])
+    selections = iter(["hello-chef", "inspect", "disable", "back", None])
 
     monkeypatch.setattr(list_cmd.ui, "choose_optional", lambda _p, _c: next(selections))
     monkeypatch.setattr(list_cmd.ui, "info", lambda _m: None)
+    monkeypatch.setattr(list_cmd.ui, "success", lambda m: messages.append(m))
     monkeypatch.setattr(
         list_cmd.inspect_cmd,
         "inspect_skill_from_meta_with_actions",
         lambda meta, scope="auto": inspected.append(str(meta["name"])),
     )
+    monkeypatch.setattr(
+        list_cmd.store,
+        "set_enabled",
+        lambda name, enabled, scope="auto": toggles.append((name, enabled, scope)),
+    )
 
     list_cmd._run_viewer(skills)
 
     assert inspected == ["hello-chef"]
+    assert toggles == [("hello-chef", False, "auto")]
+    assert messages == ["hello-chef is now disabled."]

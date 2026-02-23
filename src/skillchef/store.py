@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import shutil
 import tomllib
 from datetime import datetime, timezone
@@ -11,6 +12,9 @@ import tomli_w
 
 from skillchef import config, remote
 from skillchef.merge import merge_skill
+
+DEFAULT_FLAVOR_NAME = "default"
+_FLAVOR_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
 def skill_dir(name: str, scope: str = "auto") -> Path:
@@ -31,7 +35,11 @@ def list_skills(scope: str = "auto") -> list[dict[str, Any]]:
 
 def load_meta(name: str, scope: str = "auto") -> dict[str, Any]:
     meta_path = skill_dir(name, scope=scope) / "meta.toml"
-    return tomllib.loads(meta_path.read_text())
+    meta = tomllib.loads(meta_path.read_text())
+    # Backward compatibility for skills cooked before enabled-state support.
+    meta.setdefault("enabled", True)
+    meta.setdefault("active_flavor", DEFAULT_FLAVOR_NAME)
+    return meta
 
 
 def save_meta(name: str, meta: dict[str, Any], scope: str = "auto") -> None:
@@ -66,6 +74,8 @@ def cook(
         "base_sha256": hash_dir(base_dir),
         "last_sync": datetime.now(timezone.utc).isoformat(),
         "platforms": platforms,
+        "enabled": True,
+        "active_flavor": DEFAULT_FLAVOR_NAME,
     }
     meta.update(remote.source_metadata(remote_url, remote_type))
     save_meta(name, meta, scope=scope)
@@ -98,16 +108,99 @@ def rebuild_live(name: str, scope: str = "auto") -> None:
     if live_dir.exists():
         shutil.rmtree(live_dir)
     shutil.copytree(sd / "base", live_dir)
-    flavor_path = sd / "flavor.md"
-    if flavor_path.exists():
-        merge_skill(live_dir / "SKILL.md", flavor_path)
+    active_flavor = flavor_path(name, scope=scope)
+    if active_flavor.exists():
+        merge_skill(live_dir / "SKILL.md", active_flavor)
 
 
 def has_flavor(name: str, scope: str = "auto") -> bool:
-    return (skill_dir(name, scope=scope) / "flavor.md").exists()
+    return flavor_path(name, scope=scope).exists()
+
+
+def set_enabled(name: str, enabled: bool, scope: str = "auto") -> None:
+    meta = load_meta(name, scope=scope)
+    current = bool(meta.get("enabled", True))
+    if current == enabled:
+        return
+
+    platforms = [str(p) for p in meta.get("platforms", [])]
+    if enabled:
+        _create_symlinks(name, platforms, scope=scope)
+    else:
+        _remove_symlinks(name, platforms, scope=scope)
+
+    meta["enabled"] = enabled
+    save_meta(name, meta, scope=scope)
 
 
 def flavor_path(name: str, scope: str = "auto") -> Path:
+    active = active_flavor_name(name, scope=scope)
+    return _flavor_path_for_name(name, active, scope=scope)
+
+
+def flavor_exists(name: str, flavor_name: str, scope: str = "auto") -> bool:
+    return _flavor_path_for_name(name, flavor_name, scope=scope).exists()
+
+
+def set_active_flavor(name: str, flavor_name: str, scope: str = "auto") -> None:
+    validated = validate_flavor_name(flavor_name)
+    meta = load_meta(name, scope=scope)
+    meta["active_flavor"] = validated
+    save_meta(name, meta, scope=scope)
+
+
+def active_flavor_name(name: str, scope: str = "auto") -> str:
+    meta = load_meta(name, scope=scope)
+    raw = str(meta.get("active_flavor", DEFAULT_FLAVOR_NAME)).strip()
+    if not raw:
+        return DEFAULT_FLAVOR_NAME
+    try:
+        return validate_flavor_name(raw)
+    except ValueError:
+        return DEFAULT_FLAVOR_NAME
+
+
+def list_flavor_names(name: str, scope: str = "auto") -> list[str]:
+    names = {active_flavor_name(name, scope=scope)}
+    legacy = _legacy_flavor_path(name, scope=scope)
+    if legacy.exists():
+        names.add(DEFAULT_FLAVOR_NAME)
+    flavors_dir = skill_dir(name, scope=scope) / "flavors"
+    if flavors_dir.exists():
+        for entry in flavors_dir.glob("*.md"):
+            names.add(entry.stem)
+    return sorted(names)
+
+
+def named_flavor_path(name: str, flavor_name: str, scope: str = "auto") -> Path:
+    validated = validate_flavor_name(flavor_name)
+    return skill_dir(name, scope=scope) / "flavors" / f"{validated}.md"
+
+
+def validate_flavor_name(flavor_name: str) -> str:
+    candidate = str(flavor_name).strip()
+    if not candidate:
+        raise ValueError("Flavor name cannot be empty.")
+    if not _FLAVOR_NAME_PATTERN.match(candidate):
+        raise ValueError(
+            "Flavor name must start with a letter/number and only use letters, numbers, '-', '_', '.'."
+        )
+    return candidate
+
+
+def _flavor_path_for_name(name: str, flavor_name: str, scope: str = "auto") -> Path:
+    validated = validate_flavor_name(flavor_name)
+    named = named_flavor_path(name, validated, scope=scope)
+    if validated != DEFAULT_FLAVOR_NAME:
+        return named
+
+    legacy = _legacy_flavor_path(name, scope=scope)
+    if named.exists():
+        return named
+    return legacy
+
+
+def _legacy_flavor_path(name: str, scope: str = "auto") -> Path:
     return skill_dir(name, scope=scope) / "flavor.md"
 
 

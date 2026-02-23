@@ -206,15 +206,20 @@ def skill_table(
     table.add_column("Name")
     table.add_column("Source", style="dim")
     table.add_column("Last Sync", style="dim")
+    table.add_column("Enabled", justify="center")
     table.add_column("Flavor", justify="center")
     table.add_column("Platforms", style="dim")
     for s in skills:
+        enabled = (
+            "[green]enabled[/green]" if bool(s.get("enabled", True)) else "[red]disabled[/red]"
+        )
         flavored = has_flavor_fn(s["name"]) if has_flavor_fn else False
         flavor = "[green]yes[/green]" if flavored else "[dim]no[/dim]"
         table.add_row(
             s["name"],
             _truncate(s.get("remote_url", ""), 40),
             s.get("last_sync", "")[:10],
+            enabled,
             flavor,
             ", ".join(s.get("platforms", [])),
         )
@@ -270,6 +275,7 @@ def show_skill_inspect(meta: dict[str, Any], *, flavored: bool) -> None:
     table.add_row("Source URL", str(meta.get("remote_url", "")))
     table.add_row("Source Type", str(meta.get("remote_type", "")))
     table.add_row("Last Sync", str(meta.get("last_sync", "")))
+    table.add_row("Enabled", "yes" if bool(meta.get("enabled", True)) else "no")
     table.add_row("Flavor", "yes" if flavored else "no")
     table.add_row("Platforms", ", ".join(meta.get("platforms", [])))
     table.add_row("Base SHA256", str(meta.get("base_sha256", "")))
