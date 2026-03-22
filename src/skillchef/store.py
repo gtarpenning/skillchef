@@ -36,9 +36,15 @@ def list_skills(scope: str = "auto") -> list[dict[str, Any]]:
 def load_meta(name: str, scope: str = "auto") -> dict[str, Any]:
     meta_path = skill_dir(name, scope=scope) / "meta.toml"
     meta = tomllib.loads(meta_path.read_text())
-    # Backward compatibility for skills cooked before enabled-state support.
+    # Populate default metadata fields when absent.
     meta.setdefault("enabled", True)
     meta.setdefault("active_flavor", DEFAULT_FLAVOR_NAME)
+    meta.setdefault("served_url", "")
+    meta.setdefault("served_kind", "")
+    meta.setdefault("served_visibility", "")
+    meta.setdefault("served_repo", "")
+    meta.setdefault("served_sha256", "")
+    meta.setdefault("last_served", "")
     return meta
 
 
@@ -111,6 +117,48 @@ def rebuild_live(name: str, scope: str = "auto") -> None:
     active_flavor = flavor_path(name, scope=scope)
     if active_flavor.exists():
         merge_skill(live_dir / "SKILL.md", active_flavor)
+
+
+def write_live_skill(name: str, content: str, scope: str = "auto") -> None:
+    rebuild_live(name, scope=scope)
+    live_md = skill_dir(name, scope=scope) / "live" / "SKILL.md"
+    live_md.write_text(content)
+
+
+def served_snapshot_dir(name: str, scope: str = "auto") -> Path:
+    return skill_dir(name, scope=scope) / "served"
+
+
+def save_served_snapshot(name: str, source_dir: Path, scope: str = "auto") -> None:
+    snapshot_dir = served_snapshot_dir(name, scope=scope)
+    if snapshot_dir.exists():
+        shutil.rmtree(snapshot_dir)
+    shutil.copytree(source_dir, snapshot_dir)
+
+
+def served_snapshot_exists(name: str, scope: str = "auto") -> bool:
+    return served_snapshot_dir(name, scope=scope).exists()
+
+
+def record_served(
+    name: str,
+    *,
+    url: str,
+    kind: str,
+    visibility: str,
+    scope: str = "auto",
+    repo: str = "",
+) -> None:
+    live_dir = skill_dir(name, scope=scope) / "live"
+    save_served_snapshot(name, live_dir, scope=scope)
+    meta = load_meta(name, scope=scope)
+    meta["served_url"] = url
+    meta["served_kind"] = kind
+    meta["served_visibility"] = visibility
+    meta["served_repo"] = repo
+    meta["served_sha256"] = hash_dir(live_dir)
+    meta["last_served"] = datetime.now(timezone.utc).isoformat()
+    save_meta(name, meta, scope=scope)
 
 
 def has_flavor(name: str, scope: str = "auto") -> bool:

@@ -23,6 +23,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "model": "anthropic/claude-sonnet-4-5",
     "llm_api_key_env": "",
     "default_scope": "global",
+    "default_serve_target": "",
 }
 
 

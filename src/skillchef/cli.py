@@ -11,6 +11,7 @@ from skillchef.commands import (
     init_cmd,
     inspect_cmd,
     remove_cmd,
+    serve_cmd,
     sync_cmd,
 )
 from skillchef.commands import (
@@ -122,6 +123,14 @@ def list_cmd(scope: str) -> None:
 def inspect(skill_name: str | None, scope: str) -> None:
     """Inspect one managed skill (metadata + live SKILL.md), or choose interactively."""
     inspect_cmd.run(skill_name, scope=scope)
+
+
+@main.command()
+@click.argument("skill_name")
+@with_scope_option()
+def serve(skill_name: str, scope: str) -> None:
+    """Publish one managed skill to a remote destination."""
+    serve_cmd.run(skill_name, scope=scope)
 
 
 @main.command()

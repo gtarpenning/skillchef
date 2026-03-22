@@ -148,12 +148,12 @@ class ConflictResolver:
 
         if action == "accept ai merge" and ai_proposal:
             store.update_base(plan.name, plan.fetched_dir, scope=self.scope)
-            _write_live_skill(plan.name, ai_proposal, scope=self.scope)
+            store.write_live_skill(plan.name, ai_proposal, scope=self.scope)
             ui.success(f"  {plan.name}: AI merged")
             return
         if action == "accept update":
             store.update_base(plan.name, plan.fetched_dir, scope=self.scope)
-            _write_live_skill(plan.name, proposed_live, scope=self.scope)
+            store.write_live_skill(plan.name, proposed_live, scope=self.scope)
             ui.success(f"  {plan.name}: updated")
             return
         if action == "keep current":
@@ -161,7 +161,7 @@ class ConflictResolver:
             return
         if action == "manual edit":
             store.update_base(plan.name, plan.fetched_dir, scope=self.scope)
-            _write_live_skill(plan.name, proposed_live, scope=self.scope)
+            store.write_live_skill(plan.name, proposed_live, scope=self.scope)
             open_editor(
                 store.skill_dir(plan.name, scope=self.scope) / "live" / "SKILL.md", scope=self.scope
             )
@@ -189,7 +189,7 @@ class ConflictResolver:
 
             if action == "accept ai merge" and proposal:
                 store.update_base(plan.name, plan.fetched_dir, scope=self.scope)
-                _write_live_skill(plan.name, proposal, scope=self.scope)
+                store.write_live_skill(plan.name, proposal, scope=self.scope)
                 ui.success(f"  {plan.name}: AI merged")
                 return
 
@@ -333,11 +333,6 @@ def _effective_flavor_text(name: str, current_live: str, scope: str = "auto") ->
     if live_flavor is not None:
         return live_flavor.strip()
     return store.flavor_path(name, scope=scope).read_text()
-
-
-def _write_live_skill(name: str, content: str, scope: str = "auto") -> None:
-    live_md = store.skill_dir(name, scope=scope) / "live" / "SKILL.md"
-    live_md.write_text(content)
 
 
 def _normalize_compare_text(text: str) -> str:

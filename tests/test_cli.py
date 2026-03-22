@@ -128,6 +128,24 @@ def test_cli_inspect_dispatches_to_command(monkeypatch) -> None:
         assert captured["scope"] == "auto"
 
 
+def test_cli_serve_dispatches_to_command(monkeypatch) -> None:
+    captured: dict[str, str] = {}
+    monkeypatch.setattr(
+        cli.serve_cmd,
+        "run",
+        lambda skill_name, scope="auto", payload=captured: (
+            payload.setdefault("skill_name", skill_name),
+            payload.setdefault("scope", scope),
+        ),
+    )
+
+    result = CliRunner().invoke(cli.main, ["serve", "hello-chef"])
+
+    assert result.exit_code == 0
+    assert captured["skill_name"] == "hello-chef"
+    assert captured["scope"] == "auto"
+
+
 def test_cli_flavor_dispatches_named_options(monkeypatch) -> None:
     cases = [
         (

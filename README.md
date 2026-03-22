@@ -47,6 +47,8 @@ uvx skillchef flavor frontend-design --name project-b   # create/edit + set acti
 uvx skillchef flavor frontend-design --use project-a    # switch active flavor
 ```
 
+`serve` publishes a managed skill from its `live/` content. Single-file skills default to a GitHub gist when `gh` credentials are detected. Multi-file skills prompt for a destination, with an existing GitHub repository offered as the primary option. Each served skill records its own remote as that skill's serve target. A configured global default applies only to repository targets and is used for unserved skills. When a skill has a served remote recorded, `serve` shows the diff between the current `live/` content and the served snapshot, updates the existing remote in place, and can optionally re-cook the skill from the served URL.
+
 ## What can I cook?
 
 - **GitHub file**: `https://github.com/user/repo/blob/main/path/to/skill/SKILL.md`

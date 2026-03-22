@@ -256,6 +256,12 @@ def show_config_summary(cfg: dict[str, Any]) -> None:
     table.add_row("AI Model", cfg.get("model", ""))
     table.add_row("AI Key", cfg.get("llm_api_key_env", "") or "(auto)")
     table.add_row("Default Scope", cfg.get("default_scope", "global"))
+    default_serve_target = str(cfg.get("default_serve_target", "")).strip()
+    if (
+        default_serve_target.startswith("https://github.com/")
+        or default_serve_target.count("/") == 1
+    ):
+        table.add_row("Default Serve", default_serve_target)
     console.print(table)
 
 

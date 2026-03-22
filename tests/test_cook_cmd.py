@@ -8,17 +8,17 @@ from skillchef import store
 from skillchef.commands import cook_cmd
 
 
-def test_resolve_source_for_cook_local_single_candidate(tmp_path: Path) -> None:
+def test_resolve_sources_for_cook_local_single_candidate(tmp_path: Path) -> None:
     src = tmp_path / "skills" / "hello"
     src.mkdir(parents=True)
     (src / "SKILL.md").write_text("hello")
 
-    resolved = cook_cmd._resolve_source_for_cook(str(tmp_path / "skills"))
+    resolved = cook_cmd._resolve_sources_for_cook(str(tmp_path / "skills"))
 
-    assert resolved == str(src)
+    assert resolved == [str(src)]
 
 
-def test_resolve_source_for_cook_local_multiple_candidates_uses_selector(
+def test_resolve_sources_for_cook_local_multiple_candidates_use_multi_select(
     monkeypatch, tmp_path: Path
 ) -> None:
     root = tmp_path / "skills"
@@ -29,11 +29,11 @@ def test_resolve_source_for_cook_local_multiple_candidates_uses_selector(
     (a / "SKILL.md").write_text("a")
     (b / "SKILL.md").write_text("b")
 
-    monkeypatch.setattr(cook_cmd.ui, "choose", lambda _p, choices: choices[1])
+    monkeypatch.setattr(cook_cmd.ui, "multi_choose", lambda _p, choices: [choices[0], choices[1]])
 
-    resolved = cook_cmd._resolve_source_for_cook(str(root))
+    resolved = cook_cmd._resolve_sources_for_cook(str(root))
 
-    assert resolved == str(b)
+    assert resolved == [str(a), str(b)]
 
 
 def test_resolve_existing_name_non_interactive_requires_force(

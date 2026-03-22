@@ -189,3 +189,30 @@ def test_load_meta_defaults_active_flavor_for_legacy_meta(isolated_paths: dict[s
 
     meta = store.load_meta("legacy-two")
     assert meta["active_flavor"] == "default"
+
+
+def test_record_served_persists_snapshot_and_metadata(
+    isolated_paths: dict[str, Path], tmp_path: Path
+) -> None:
+    store.cook("hello-chef", _make_fetched_skill(tmp_path), "local", "local", ["codex"])
+    live_dir = store.skill_dir("hello-chef") / "live"
+    (live_dir / "SKILL.md").write_text("served body\n")
+    (live_dir / "scripts" / "tool.py").write_text("print('served')\n")
+
+    store.record_served(
+        "hello-chef",
+        url="https://gist.github.com/example/hello",
+        kind="gist",
+        visibility="private",
+    )
+
+    meta = store.load_meta("hello-chef")
+    snapshot_dir = store.served_snapshot_dir("hello-chef")
+    assert meta["served_url"] == "https://gist.github.com/example/hello"
+    assert meta["served_kind"] == "gist"
+    assert meta["served_visibility"] == "private"
+    assert meta["served_sha256"] == store.hash_dir(live_dir)
+    assert meta["last_served"]
+    assert snapshot_dir.exists()
+    assert (snapshot_dir / "SKILL.md").read_text() == "served body\n"
+    assert (snapshot_dir / "scripts" / "tool.py").read_text() == "print('served')\n"

@@ -55,3 +55,32 @@ def test_run_viewer_shows_selected_skill_until_exit(monkeypatch) -> None:
     assert inspected == ["hello-chef"]
     assert toggles == [("hello-chef", False, "auto")]
     assert messages == ["hello-chef is now disabled."]
+
+
+def test_run_viewer_delete_removes_skill_from_viewer_state(monkeypatch) -> None:
+    skills = [{"name": "hello-chef", "remote_url": "https://example.com/hello", "enabled": True}]
+    removed: list[tuple[str, str]] = []
+    prompts: list[list[str]] = []
+    messages: list[str] = []
+
+    selections = iter(["hello-chef", "delete", None])
+
+    def choose_optional(_prompt: str, choices: list[str]):
+        prompts.append(list(choices))
+        return next(selections)
+
+    monkeypatch.setattr(list_cmd.ui, "choose_optional", choose_optional)
+    monkeypatch.setattr(list_cmd.ui, "info", lambda _m: None)
+    monkeypatch.setattr(list_cmd.ui, "success", lambda m: messages.append(m))
+    monkeypatch.setattr(list_cmd.ui, "confirm", lambda _p, default=False: True)
+    monkeypatch.setattr(
+        list_cmd.store,
+        "remove",
+        lambda name, scope="auto": removed.append((name, scope)),
+    )
+
+    list_cmd._run_viewer(skills)
+
+    assert removed == [("hello-chef", "auto")]
+    assert prompts == [["hello-chef"], ["inspect", "disable", "delete", "back"]]
+    assert messages == ["Removed hello-chef"]

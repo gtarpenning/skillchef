@@ -13,6 +13,22 @@ def _write_skill_dir(path: Path, *, name: str = "demo", body: str = "base v1") -
     (path / "SKILL.md").write_text(f"---\nname: {name}\n---\n\n# Demo\n\n{body}\n")
 
 
+def _write_folder_skill_dir(
+    path: Path,
+    *,
+    name: str = "test-skill",
+    body: str = "base v1",
+    script_body: str = "#!/bin/sh\necho v1\n",
+    yaml_body: str = "mode: v1\n",
+) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    (path / "SKILL.md").write_text(f"---\nname: {name}\n---\n\n# Demo\n\n{body}\n")
+    (path / "scripts").mkdir(exist_ok=True)
+    (path / "scripts" / "run.sh").write_text(script_body)
+    (path / "config").mkdir(exist_ok=True)
+    (path / "config" / "recipe.yaml").write_text(yaml_body)
+
+
 def _mute_ui(monkeypatch) -> None:
     for fn in (
         "banner",
@@ -63,6 +79,36 @@ def test_e2e_init_cook_sync_without_flavor(
     _write_skill_dir(source, body="base v2")
     assert runner.invoke(cli.main, ["sync", "demo", "--no-ai"]).exit_code == 0
     assert "base v2" in store.live_skill_text("demo")
+
+
+def test_e2e_cook_multiple_local_skills_from_parent_dir(
+    isolated_paths: dict[str, Path], tmp_path: Path, monkeypatch
+) -> None:
+    _mute_ui(monkeypatch)
+    config.save(
+        {
+            "platforms": ["codex"],
+            "editor": "vim",
+            "model": "openai/gpt-5.2",
+            "llm_api_key_env": "",
+            "default_scope": "global",
+        }
+    )
+    source_root = tmp_path / "skills"
+    _write_skill_dir(source_root / "alpha", name="alpha", body="base a")
+    _write_skill_dir(source_root / "beta", name="beta", body="base b")
+
+    monkeypatch.setattr("skillchef.ui.multi_choose", lambda _p, choices: list(choices))
+    monkeypatch.setattr("skillchef.ui.ask", lambda _p, default="": default)
+
+    runner = CliRunner()
+    result = runner.invoke(cli.main, ["cook", str(source_root)])
+
+    assert result.exit_code == 0
+    assert store.load_meta("alpha")["remote_url"] == str(source_root / "alpha")
+    assert store.load_meta("beta")["remote_url"] == str(source_root / "beta")
+    assert "base a" in store.live_skill_text("alpha")
+    assert "base b" in store.live_skill_text("beta")
 
 
 def test_e2e_init_with_optional_example_wizard(
@@ -163,6 +209,54 @@ def test_e2e_sync_with_flavor_preserves_flavor_text(
     live = store.live_skill_text("demo")
     assert "base v2" in live
     assert "Keep local behavior" in live
+
+
+def test_e2e_sync_folder_skill_refreshes_extra_files(
+    isolated_paths: dict[str, Path], tmp_path: Path, monkeypatch
+) -> None:
+    _mute_ui(monkeypatch)
+    config.save(
+        {
+            "platforms": ["codex"],
+            "editor": "vim",
+            "model": "openai/gpt-5.2",
+            "llm_api_key_env": "",
+            "default_scope": "global",
+        }
+    )
+    source_root = tmp_path / "skills"
+    source = source_root / "test-skill"
+    _write_folder_skill_dir(source, body="base v1")
+
+    monkeypatch.setattr("skillchef.ui.multi_choose", lambda _p, _c: ["codex"])
+    monkeypatch.setattr("skillchef.ui.ask", lambda _p, default="": default)
+
+    runner = CliRunner()
+    assert runner.invoke(cli.main, ["cook", str(source_root)]).exit_code == 0
+
+    flavor = store.flavor_path("test-skill")
+    flavor.write_text("Keep local behavior\n")
+    store.rebuild_live("test-skill")
+
+    live_dir = store.skill_dir("test-skill") / "live"
+    assert (live_dir / "scripts" / "run.sh").read_text() == "#!/bin/sh\necho v1\n"
+    assert (live_dir / "config" / "recipe.yaml").read_text() == "mode: v1\n"
+
+    _write_folder_skill_dir(
+        source,
+        body="base v2",
+        script_body="#!/bin/sh\necho v2\n",
+        yaml_body="mode: v2\n",
+    )
+    monkeypatch.setattr("skillchef.ui.choose", lambda _p, _c: "accept update")
+
+    assert runner.invoke(cli.main, ["sync", "test-skill", "--no-ai"]).exit_code == 0
+
+    live = store.live_skill_text("test-skill")
+    assert "base v2" in live
+    assert "Keep local behavior" in live
+    assert (live_dir / "scripts" / "run.sh").read_text() == "#!/bin/sh\necho v2\n"
+    assert (live_dir / "config" / "recipe.yaml").read_text() == "mode: v2\n"
 
 
 def test_e2e_sync_accepts_ai_merge_proposal(
