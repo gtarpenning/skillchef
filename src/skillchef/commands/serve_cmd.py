@@ -19,7 +19,7 @@ def run(skill_name: str, scope: str = "auto") -> None:
     ui.banner()
     try:
         meta = store.load_meta(skill_name, scope=scope)
-    except FileNotFoundError:
+    except (FileNotFoundError, KeyError):
         ui.error(f"Skill '{skill_name}' not found.")
         raise SystemExit(1)
 

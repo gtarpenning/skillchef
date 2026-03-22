@@ -35,6 +35,8 @@ def list_skills(scope: str = "auto") -> list[dict[str, Any]]:
 
 def load_meta(name: str, scope: str = "auto") -> dict[str, Any]:
     meta_path = skill_dir(name, scope=scope) / "meta.toml"
+    if not meta_path.exists():
+        raise KeyError(f"Skill '{name}' not found in store.")
     meta = tomllib.loads(meta_path.read_text())
     # Populate default metadata fields when absent.
     meta.setdefault("enabled", True)
@@ -223,6 +225,17 @@ def list_flavor_names(name: str, scope: str = "auto") -> list[str]:
 def named_flavor_path(name: str, flavor_name: str, scope: str = "auto") -> Path:
     validated = validate_flavor_name(flavor_name)
     return skill_dir(name, scope=scope) / "flavors" / f"{validated}.md"
+
+
+def validate_skill_name(name: str) -> str:
+    candidate = str(name).strip()
+    if not candidate:
+        raise ValueError("Skill name cannot be empty.")
+    if not _FLAVOR_NAME_PATTERN.match(candidate):
+        raise ValueError(
+            "Skill name must start with a letter/number and only use letters, numbers, '-', '_', '.'."
+        )
+    return candidate
 
 
 def validate_flavor_name(flavor_name: str) -> str:

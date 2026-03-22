@@ -1580,7 +1580,7 @@ wheels = [
 
 [[package]]
 name = "skillchef"
-version = "0.2.6"
+version = "0.2.7"
 source = { editable = "." }
 dependencies = [
     { name = "click" },

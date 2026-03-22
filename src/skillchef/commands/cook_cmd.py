@@ -33,7 +33,13 @@ def run(source: str, force_overwrite: bool = False, scope: str = "auto") -> None
 
         try:
             default_name = _default_skill_name(fetched_dir)
-            name = ui.ask("Skill name", default=default_name)
+            while True:
+                name = ui.ask("Skill name", default=default_name)
+                try:
+                    name = store.validate_skill_name(name)
+                    break
+                except ValueError as ve:
+                    ui.warn(str(ve))
             name = _resolve_existing_name(name, force_overwrite=force_overwrite, scope=scope)
             store.cook(name, fetched_dir, resolved_source, remote_type, platforms, scope=scope)
         except Exception as e:
@@ -122,8 +128,10 @@ def _resolve_existing_name(name: str, *, force_overwrite: bool, scope: str = "au
 def _choose_new_name(original: str, scope: str = "auto") -> str:
     while True:
         candidate = ui.ask("New skill name", default=f"{original}-copy").strip()
-        if not candidate:
-            ui.warn("Name cannot be empty.")
+        try:
+            candidate = store.validate_skill_name(candidate)
+        except ValueError as ve:
+            ui.warn(str(ve))
             continue
         if not store.skill_dir(candidate, scope=scope).exists():
             return candidate
