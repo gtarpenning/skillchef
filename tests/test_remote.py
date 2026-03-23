@@ -116,6 +116,37 @@ def test_github_parsing_and_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
     assert gist_meta["source_ref_resolved"] == "abcdef123456"
 
 
+def test_derive_child_source_handles_supported_source_types(tmp_path: Path) -> None:
+    local_root = tmp_path / "skills"
+    local_root.mkdir()
+
+    assert (
+        remote.derive_child_source(
+            "https://github.com/acme/repo/tree/main/skills",
+            remote_type="github",
+            rel_path=Path("alpha"),
+        )
+        == "https://github.com/acme/repo/tree/main/skills/alpha"
+    )
+    assert (
+        remote.derive_child_source(
+            "https://github.com/acme/repo/tree/main/skills",
+            remote_type="github",
+            rel_path=Path("."),
+        )
+        == "https://github.com/acme/repo/tree/main/skills"
+    )
+    assert remote.derive_child_source(
+        str(local_root), remote_type="local", rel_path=Path("alpha")
+    ) == str((local_root / "alpha").resolve())
+    with pytest.raises(ValueError, match="cannot derive individual skill URLs"):
+        remote.derive_child_source(
+            "https://example.com/skills.zip",
+            remote_type="http",
+            rel_path=Path("alpha"),
+        )
+
+
 def test_source_metadata_for_http_and_local(tmp_path: Path) -> None:
     local = tmp_path / "SKILL.md"
     local.write_text("x")
@@ -161,6 +192,44 @@ def test_fetch_gist_downloads_files(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     assert (fetched / "SKILL.md").read_text() == "---\nname: gist-demo\n---\n"
     assert (fetched / "notes.txt").read_text() == "hello\n"
     assert calls == []
+
+
+def test_fetch_github_repo_paths_use_git_sparse_checkout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    commands: list[tuple[list[str], Path | None]] = []
+
+    monkeypatch.setattr(
+        remote.shutil,
+        "which",
+        lambda cmd: "/usr/bin/git" if cmd == "git" else None,
+    )
+
+    def fake_run_fetch_command(cmd: list[str], cwd: Path | None = None) -> str:
+        commands.append((cmd, cwd))
+        if cmd[:2] == ["git", "clone"]:
+            Path(cmd[-1]).mkdir(parents=True, exist_ok=True)
+            return ""
+        if cmd[:3] == ["git", "checkout", "FETCH_HEAD"]:
+            assert cwd is not None
+            source_dir = cwd / "skills" / "demo"
+            source_dir.mkdir(parents=True, exist_ok=True)
+            (source_dir / "SKILL.md").write_text("tree skill\n")
+            (source_dir / "scripts").mkdir()
+            (source_dir / "scripts" / "tool.py").write_text("print('ok')\n")
+            return ""
+        return ""
+
+    monkeypatch.setattr(remote, "_run_fetch_command", fake_run_fetch_command)
+
+    fetched = remote._fetch_github("https://github.com/acme/repo/tree/main/skills/demo")
+
+    assert commands[0][0][:5] == ["git", "clone", "--filter=blob:none", "--sparse", "--no-checkout"]
+    assert commands[1][0] == ["git", "sparse-checkout", "set", "--no-cone", "skills/demo"]
+    assert commands[2][0] == ["git", "fetch", "--depth", "1", "origin", "main"]
+    assert commands[3][0] == ["git", "checkout", "FETCH_HEAD"]
+    assert (fetched / "SKILL.md").read_text() == "tree skill\n"
+    assert (fetched / "scripts" / "tool.py").read_text() == "print('ok')\n"
 
 
 def test_request_with_retry_retries_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -288,6 +357,42 @@ def test_detect_publish_credentials_parses_current_gh_host_list_shape(
     assert creds.gh_authenticated is True
 
 
+def test_detect_publish_credentials_falls_back_for_older_gh_cli(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        remote.shutil,
+        "which",
+        lambda cmd: f"/usr/bin/{cmd}" if cmd in {"gh", "git"} else None,
+    )
+
+    def fake_run(cmd: list[str], **_kwargs):
+        joined = " ".join(cmd)
+        if cmd[:4] == ["gh", "auth", "status", "--json"]:
+            raise subprocess.CalledProcessError(
+                1,
+                cmd,
+                output="",
+                stderr="unknown flag: --json",
+            )
+        if joined == "gh auth token":
+            return subprocess.CompletedProcess(cmd, 0, stdout="secret-token\n", stderr="")
+        if joined == "git config --global --get credential.helper":
+            return subprocess.CompletedProcess(cmd, 0, stdout="osxkeychain\n", stderr="")
+        if joined == "git config --global --get user.name":
+            return subprocess.CompletedProcess(cmd, 0, stdout="Chef\n", stderr="")
+        if joined == "git config --global --get user.email":
+            return subprocess.CompletedProcess(cmd, 0, stdout="chef@example.com\n", stderr="")
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    monkeypatch.setattr(remote.subprocess, "run", fake_run)
+
+    creds = remote.detect_publish_credentials()
+
+    assert creds.gh_authenticated is True
+    assert creds.git_configured is True
+
+
 def test_create_gist_builds_expected_command(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -393,6 +498,16 @@ def test_update_repo_builds_expected_commands(
             return subprocess.CompletedProcess(cmd, 0, stdout="M SKILL.md\n", stderr="")
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
+    monkeypatch.setattr(
+        remote,
+        "detect_publish_credentials",
+        lambda: remote.PublishCredentials(True, True, True, True),
+    )
+    monkeypatch.setattr(
+        remote.shutil,
+        "which",
+        lambda cmd: f"/usr/bin/{cmd}" if cmd in {"gh", "git"} else None,
+    )
     monkeypatch.setattr(remote.subprocess, "run", fake_run)
 
     url = remote.update_repo(
@@ -408,3 +523,44 @@ def test_update_repo_builds_expected_commands(
     assert calls[3][0] == ["git", "status", "--short"]
     assert calls[4][0][:4] == ["git", "-c", "user.name=skillchef", "-c"]
     assert calls[5][0] == ["git", "push", "origin", "HEAD"]
+
+
+def test_update_repo_uses_git_clone_without_gh_auth(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source_dir = tmp_path / "live"
+    source_dir.mkdir()
+    (source_dir / "SKILL.md").write_text("hi")
+    calls: list[tuple[list[str], str | None]] = []
+
+    def fake_run(cmd: list[str], cwd=None, **_kwargs):
+        calls.append((cmd, cwd))
+        if cmd[:2] == ["git", "clone"]:
+            Path(cmd[-1]).mkdir(parents=True, exist_ok=True)
+            (Path(cmd[-1]) / ".git").mkdir()
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[:3] == ["git", "status", "--short"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="M SKILL.md\n", stderr="")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(
+        remote,
+        "detect_publish_credentials",
+        lambda: remote.PublishCredentials(False, False, True, True),
+    )
+    monkeypatch.setattr(
+        remote.shutil,
+        "which",
+        lambda cmd: "/usr/bin/git" if cmd == "git" else None,
+    )
+    monkeypatch.setattr(remote.subprocess, "run", fake_run)
+
+    url = remote.update_repo(
+        "acme/demo",
+        source_dir,
+        description="demo skill",
+    )
+
+    assert url == "https://github.com/acme/demo"
+    assert calls[0][0][:3] == ["git", "clone", "https://github.com/acme/demo.git"]
+    assert all(cmd[0][0] != "gh" for cmd in calls)

@@ -313,11 +313,14 @@ def test_serve_can_recook_from_newly_served_skill(
     assert cleaned == [fetched]
 
 
-def test_serve_requires_gh_authentication_when_only_git_is_detected(
+def test_serve_allows_repo_publish_when_only_git_is_detected(
     isolated_paths: dict[str, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    _write_live_skill("demo", isolated_paths)
+    live_dir = _write_live_skill("demo", isolated_paths)
+    infos: list[str] = []
+    publish_choices: list[str] = []
     warnings: list[str] = []
+    repo_calls: list[tuple[str, Path, str]] = []
     monkeypatch.setattr(
         serve_cmd.remote,
         "detect_publish_credentials",
@@ -329,10 +332,35 @@ def test_serve_requires_gh_authentication_when_only_git_is_detected(
         ),
     )
     monkeypatch.setattr(serve_cmd.ui, "banner", lambda: None)
+    monkeypatch.setattr(serve_cmd.ui, "info", lambda msg: infos.append(msg))
     monkeypatch.setattr(serve_cmd.ui, "warn", lambda msg: warnings.append(msg))
-    monkeypatch.setattr(serve_cmd.ui, "info", lambda _msg: None)
+    monkeypatch.setattr(serve_cmd.ui, "success", lambda _msg: None)
+    monkeypatch.setattr(serve_cmd.ui, "confirm", lambda _p, default=False: False)
+    monkeypatch.setattr(
+        serve_cmd.ui,
+        "choose",
+        lambda _p, choices: (
+            publish_choices.extend(choices) or "existing github repo (overwrite contents)"
+        ),
+    )
+    monkeypatch.setattr(
+        serve_cmd.ui,
+        "ask",
+        lambda prompt, default="": (
+            "acme/demo" if prompt == "Existing repository (OWNER/REPO or URL)" else default
+        ),
+    )
+    monkeypatch.setattr(
+        serve_cmd.remote,
+        "update_repo",
+        lambda repo, source_dir, *, description: (
+            repo_calls.append((repo, source_dir, description)) or "https://github.com/acme/demo"
+        ),
+    )
 
-    with pytest.raises(SystemExit):
-        serve_cmd.run("demo")
+    serve_cmd.run("demo")
 
-    assert any("Git credentials/config detected" in msg for msg in warnings)
+    assert publish_choices == ["existing github repo (overwrite contents)", "cancel"]
+    assert repo_calls == [("acme/demo", live_dir, "demo skill")]
+    assert any("Git credentials/config detected" in msg for msg in infos)
+    assert any("GitHub CLI was not found on PATH." in msg for msg in warnings)

@@ -95,32 +95,49 @@ def _choose_publish_target(
     scope: str,
 ) -> PublishPlan:
     single_file = _is_single_file_skill(live_dir)
-    if not credentials.gh_authenticated:
-        if credentials.git_configured:
-            ui.warn(
-                "Git credentials/config detected, but GitHub CLI is not authenticated. "
-                "Run `gh auth login` to publish with skillchef."
-            )
-        elif credentials.gh_installed:
+    can_publish_gists = _can_publish_gists(credentials)
+    can_publish_repos = _can_publish_repos(credentials)
+    can_create_repos = _can_create_repos(credentials)
+
+    if not can_publish_gists and not can_publish_repos:
+        if credentials.gh_installed:
             ui.warn("GitHub CLI is installed but not authenticated. Run `gh auth login` first.")
+        elif not credentials.git_installed:
+            ui.warn("Git is not installed. Install `git` to publish repository-backed skills.")
         else:
-            ui.warn("GitHub CLI is not installed. Install `gh` and run `gh auth login` first.")
+            ui.warn("No supported publish credentials were detected.")
+        raise SystemExit(1)
+
+    if not can_publish_repos and not single_file:
+        ui.warn("Publishing multi-file skills requires git-backed repository access.")
         raise SystemExit(1)
 
     default_target = _global_default_repo_target(scope=scope)
-    if single_file:
+    if single_file and can_publish_gists:
         ui.info(
             f"GitHub CLI credentials detected for [bold]{skill_name}[/bold]. "
             "A gist is the default for single-file skills."
         )
+    elif single_file:
+        ui.info(
+            f"Git credentials/config detected for [bold]{skill_name}[/bold]. "
+            "Choose an existing repository target. GitHub CLI auth is required for gists "
+            "and for creating new repositories."
+        )
     else:
         ui.info(
-            f"GitHub CLI credentials detected for [bold]{skill_name}[/bold]. "
+            f"Repository publish support detected for [bold]{skill_name}[/bold]. "
             "Choose an existing destination or create a new repository."
         )
 
     while True:
-        choices = _first_publish_choices(single_file=single_file, default_target=default_target)
+        choices = _first_publish_choices(
+            single_file=single_file,
+            default_target=default_target,
+            allow_gists=can_publish_gists,
+            allow_existing_repo=can_publish_repos,
+            allow_repo_create=can_create_repos,
+        )
         action = ui.choose("Publish target", choices)
 
         if action == "cancel":
@@ -258,6 +275,11 @@ def _update_existing_publish(
     credentials: remote.PublishCredentials,
     scope: str,
 ) -> PublishOutcome:
+    if existing.kind == "gist" and not _can_publish_gists(credentials):
+        raise remote.PublishError("Updating a GitHub gist requires an authenticated GitHub CLI.")
+    if existing.kind == "repo" and not _can_publish_repos(credentials):
+        raise remote.PublishError("Updating a repository requires git-backed repository access.")
+
     ui.info(f"[bold]{skill_name}[/bold] is served at {existing.url}")
     changed = _show_served_changes(skill_name, live_dir=live_dir, scope=scope)
     if changed:
@@ -438,33 +460,37 @@ def _is_missing_remote_error(error: Exception) -> bool:
     )
 
 
-def _first_publish_choices(*, single_file: bool, default_target: str) -> list[str]:
+def _first_publish_choices(
+    *,
+    single_file: bool,
+    default_target: str,
+    allow_gists: bool,
+    allow_existing_repo: bool,
+    allow_repo_create: bool,
+) -> list[str]:
     choices: list[str] = []
-    if default_target:
+    if default_target and allow_existing_repo:
         choices.append(f"use configured default ({_display_target(default_target)})")
 
-    if single_file:
+    if single_file and allow_gists:
         choices.extend(
             [
                 "github gist (secret)",
                 "github gist (public)",
                 "existing github gist",
-                "existing github repo (overwrite contents)",
-                "create new github repo (private)",
-                "create new github repo (public)",
-                "cancel",
             ]
         )
-        return choices
 
-    choices.extend(
-        [
-            "existing github repo (overwrite contents)",
-            "create new github repo (private)",
-            "create new github repo (public)",
-            "cancel",
-        ]
-    )
+    if allow_existing_repo:
+        choices.append("existing github repo (overwrite contents)")
+    if allow_repo_create:
+        choices.extend(
+            [
+                "create new github repo (private)",
+                "create new github repo (public)",
+            ]
+        )
+    choices.append("cancel")
     return choices
 
 
@@ -531,3 +557,17 @@ def _report_credentials(credentials: remote.PublishCredentials) -> None:
         ui.warn("Git is installed, but no credential helper or user identity was detected.")
     else:
         ui.warn("Git was not found on PATH.")
+
+
+def _can_publish_gists(credentials: remote.PublishCredentials) -> bool:
+    return credentials.gh_authenticated
+
+
+def _can_publish_repos(credentials: remote.PublishCredentials) -> bool:
+    return credentials.git_installed and (
+        credentials.git_configured or credentials.gh_authenticated
+    )
+
+
+def _can_create_repos(credentials: remote.PublishCredentials) -> bool:
+    return credentials.git_installed and credentials.gh_authenticated

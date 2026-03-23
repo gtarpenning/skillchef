@@ -5,7 +5,7 @@ from pathlib import Path
 from click.testing import CliRunner
 
 from skillchef import cli, config, store
-from skillchef.commands import flavor_cmd, init_cmd, sync_cmd
+from skillchef.commands import cook_cmd, flavor_cmd, init_cmd, sync_cmd
 
 
 def _write_skill_dir(path: Path, *, name: str = "demo", body: str = "base v1") -> None:
@@ -107,6 +107,57 @@ def test_e2e_cook_multiple_local_skills_from_parent_dir(
     assert result.exit_code == 0
     assert store.load_meta("alpha")["remote_url"] == str(source_root / "alpha")
     assert store.load_meta("beta")["remote_url"] == str(source_root / "beta")
+    assert "base a" in store.live_skill_text("alpha")
+    assert "base b" in store.live_skill_text("beta")
+
+
+def test_e2e_cook_multiple_remote_skills_from_github_tree(
+    isolated_paths: dict[str, Path], tmp_path: Path, monkeypatch
+) -> None:
+    _mute_ui(monkeypatch)
+    config.save(
+        {
+            "platforms": ["codex"],
+            "editor": "vim",
+            "model": "openai/gpt-5.2",
+            "llm_api_key_env": "",
+            "default_scope": "global",
+        }
+    )
+    fetched_root = tmp_path / "fetched-remote"
+    _write_skill_dir(fetched_root / "alpha", name="alpha", body="base a")
+    _write_skill_dir(fetched_root / "beta", name="beta", body="base b")
+
+    monkeypatch.setattr(
+        cook_cmd.remote,
+        "fetch",
+        lambda _source: (fetched_root, "github"),
+    )
+    monkeypatch.setattr(cook_cmd, "cleanup_fetched", lambda _path: None)
+
+    def multi_choose(prompt: str, choices: list[str]) -> list[str]:
+        if "Multiple skills found" in prompt:
+            return list(choices)
+        return ["codex"]
+
+    monkeypatch.setattr("skillchef.ui.multi_choose", multi_choose)
+    monkeypatch.setattr("skillchef.ui.ask", lambda _p, default="": default)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli.main,
+        ["cook", "https://github.com/acme/repo/tree/main/skills"],
+    )
+
+    assert result.exit_code == 0
+    assert (
+        store.load_meta("alpha")["remote_url"]
+        == "https://github.com/acme/repo/tree/main/skills/alpha"
+    )
+    assert (
+        store.load_meta("beta")["remote_url"]
+        == "https://github.com/acme/repo/tree/main/skills/beta"
+    )
     assert "base a" in store.live_skill_text("alpha")
     assert "base b" in store.live_skill_text("beta")
 

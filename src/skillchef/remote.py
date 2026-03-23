@@ -141,6 +141,28 @@ def source_metadata(source: str, remote_type: str | None = None) -> dict[str, st
     return metadata
 
 
+def derive_child_source(source: str, *, remote_type: str, rel_path: Path) -> str:
+    normalized_rel_path = Path(rel_path)
+    if normalized_rel_path == Path("."):
+        return source
+
+    if remote_type == "github":
+        parsed = _parse_github_source(source)
+        if not parsed:
+            raise ValueError("Cannot derive a specific GitHub skill URL from this source.")
+        owner, repo, ref, base_path = parsed
+        child_path = (Path(base_path) / normalized_rel_path).as_posix()
+        return f"https://github.com/{owner}/{repo}/tree/{ref}/{child_path}"
+
+    if remote_type == "local":
+        return str((Path(source).resolve() / normalized_rel_path).resolve())
+
+    raise ValueError(
+        "Fetched source contains multiple nested skills, but skillchef cannot derive "
+        "individual skill URLs for this source type."
+    )
+
+
 def _fetch_local(source: str) -> Path:
     src = Path(source).resolve()
     tmp = Path(tempfile.mkdtemp(prefix="skillchef-"))
@@ -157,7 +179,7 @@ def _fetch_github(source: str) -> Path:
     parsed = _parse_github_source(source)
     if parsed:
         owner, repo, ref, path = parsed
-        return _fetch_github_dir(owner, repo, ref, path)
+        return _fetch_github_path(owner, repo, ref, path)
 
     gist_id = _parse_gist_source(source)
     if gist_id:
@@ -170,43 +192,39 @@ def _fetch_github(source: str) -> Path:
     raise AssertionError("unreachable")
 
 
-def _fetch_github_dir(owner: str, repo: str, ref: str, path: str) -> Path:
-    api_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}?ref={ref}"
+def _fetch_github_path(owner: str, repo: str, ref: str, path: str) -> Path:
+    if shutil.which("git") is None:
+        raise FetchError("Git is required to fetch GitHub repository paths.")
+
     tmp = Path(tempfile.mkdtemp(prefix="skillchef-"))
+    clone_dir = tmp / "repo"
     skill_dir = tmp / "skill"
     skill_dir.mkdir()
-    _download_github_path(api_url, skill_dir)
-    return skill_dir
+    try:
+        _run_fetch_command(
+            [
+                "git",
+                "clone",
+                "--filter=blob:none",
+                "--sparse",
+                "--no-checkout",
+                _github_clone_url(owner, repo),
+                str(clone_dir),
+            ]
+        )
+        _run_fetch_command(["git", "sparse-checkout", "set", "--no-cone", path], cwd=clone_dir)
+        _run_fetch_command(["git", "fetch", "--depth", "1", "origin", ref], cwd=clone_dir)
+        _run_fetch_command(["git", "checkout", "FETCH_HEAD"], cwd=clone_dir)
 
+        source_path = clone_dir / path
+        if not source_path.exists():
+            raise FetchError(f"Fetched GitHub path was not found after checkout: {path}")
 
-def _download_github_path(api_url: str, dest: Path) -> None:
-    data = _request_json_with_retry(api_url, headers={"Accept": "application/vnd.github.v3+json"})
-
-    if isinstance(data, dict):
-        item = cast(dict[str, Any], data)
-        if item.get("type") == "file":
-            download_url = str(item.get("download_url", "")).strip()
-            name = str(item.get("name", "")).strip()
-            if not download_url or not name:
-                raise FetchError(f"GitHub API file response missing required fields for {api_url}")
-            _download_raw(download_url, dest / name)
-            return
-
-    if isinstance(data, list):
-        for raw_item in data:
-            if not isinstance(raw_item, dict):
-                continue
-            item = cast(dict[str, Any], raw_item)
-            item_type = item.get("type")
-            if item_type == "file":
-                _download_raw(str(item["download_url"]), dest / str(item["name"]))
-            elif item_type == "dir":
-                sub = dest / str(item["name"])
-                sub.mkdir(exist_ok=True)
-                _download_github_path(str(item["url"]), sub)
-        return
-
-    raise FetchError(f"Unexpected GitHub API response format for {api_url}")
+        _copy_fetched_path(source_path, skill_dir)
+        return skill_dir
+    except FetchError:
+        shutil.rmtree(tmp, ignore_errors=True)
+        raise
 
 
 def _download_raw(url: str, dest: Path) -> None:
@@ -357,18 +375,7 @@ def detect_publish_credentials() -> PublishCredentials:
 
     gh_authenticated = False
     if gh_installed:
-        try:
-            result = subprocess.run(
-                ["gh", "auth", "status", "--json", "hosts"],
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            payload = json.loads(result.stdout or "{}")
-            hosts = payload.get("hosts", {})
-            gh_authenticated = any(_gh_host_authenticated(host) for host in _iter_gh_hosts(hosts))
-        except (OSError, subprocess.CalledProcessError, json.JSONDecodeError):
-            gh_authenticated = False
+        gh_authenticated = _detect_gh_authentication()
 
     git_configured = False
     if git_installed:
@@ -479,7 +486,7 @@ def update_repo(repo: str, source_dir: Path, *, description: str) -> str:
     tmp_root = Path(tempfile.mkdtemp(prefix="skillchef-publish-"))
     clone_dir = tmp_root / "repo"
     try:
-        _run_publish_command(["gh", "repo", "clone", repo_name, str(clone_dir)])
+        _clone_repo_for_update(repo, repo_name, clone_dir)
         _clear_repo_worktree(clone_dir)
         for entry in source_dir.iterdir():
             dest = clone_dir / entry.name
@@ -488,7 +495,7 @@ def update_repo(repo: str, source_dir: Path, *, description: str) -> str:
             else:
                 shutil.copy2(entry, dest)
 
-        _run_publish_command(["gh", "repo", "edit", repo_name, "--description", description])
+        _maybe_update_repo_description(repo_name, description)
         _run_publish_command(["git", "add", "-A"], cwd=clone_dir)
         status = _run_capture_command(["git", "status", "--short"], cwd=clone_dir).strip()
         if not status:
@@ -534,6 +541,23 @@ def _run_publish_command(cmd: list[str], cwd: Path | None = None) -> str:
     return output.splitlines()[-1].strip()
 
 
+def _run_fetch_command(cmd: list[str], cwd: Path | None = None) -> str:
+    try:
+        result = subprocess.run(
+            cmd,
+            cwd=str(cwd) if cwd else None,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except FileNotFoundError as exc:
+        raise FetchError(f"Command not found: {cmd[0]}") from exc
+    except subprocess.CalledProcessError as exc:
+        message = (exc.stderr or exc.stdout or str(exc)).strip()
+        raise FetchError(message or f"Command failed: {' '.join(cmd)}") from exc
+    return result.stdout or ""
+
+
 def _run_capture_command(cmd: list[str], cwd: Path | None = None) -> str:
     try:
         result = subprocess.run(
@@ -571,6 +595,47 @@ def _iter_gh_hosts(raw_hosts: object) -> list[dict[str, Any]]:
                     values.append(item)
         return values
     return []
+
+
+def _detect_gh_authentication() -> bool:
+    try:
+        result = subprocess.run(
+            ["gh", "auth", "status", "--json", "hosts"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except FileNotFoundError:
+        return False
+    except subprocess.CalledProcessError as exc:
+        stderr = (exc.stderr or "").lower()
+        stdout = (exc.stdout or "").lower()
+        if "--json" in stderr or "--json" in stdout or "unknown flag" in stderr:
+            return _detect_gh_authentication_legacy()
+        return False
+    except OSError:
+        return False
+
+    try:
+        payload = json.loads(result.stdout or "{}")
+    except json.JSONDecodeError:
+        return _detect_gh_authentication_legacy()
+
+    hosts = payload.get("hosts", {})
+    return any(_gh_host_authenticated(host) for host in _iter_gh_hosts(hosts))
+
+
+def _detect_gh_authentication_legacy() -> bool:
+    try:
+        result = subprocess.run(
+            ["gh", "auth", "token"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except (FileNotFoundError, OSError, subprocess.CalledProcessError):
+        return False
+    return bool((result.stdout or "").strip())
 
 
 def _gh_host_authenticated(host: dict[str, Any]) -> bool:
@@ -628,10 +693,61 @@ def _gist_id_from_value(gist: str) -> str:
 
 
 def _repo_name_from_value(repo: str) -> str:
-    path = urlparse(repo).path.strip("/")
+    candidate = repo.strip().rstrip("/")
+    ssh_match = re.match(r"git@github\.com:(?P<repo>.+?)(?:\.git)?$", candidate)
+    if ssh_match:
+        return ssh_match.group("repo")
+
+    path = urlparse(candidate).path.strip("/")
     if path:
-        return path
-    return repo.strip()
+        return path.removesuffix(".git")
+    return candidate.removesuffix(".git")
+
+
+def _github_clone_url(owner: str, repo: str) -> str:
+    return f"https://github.com/{owner}/{repo}.git"
+
+
+def _repo_clone_url(repo: str) -> str:
+    candidate = repo.strip()
+    if re.match(r"^(?:https?://|ssh://|git@)", candidate):
+        return candidate
+    return _github_clone_url(*_repo_name_from_value(candidate).split("/", 1))
+
+
+def _copy_fetched_path(source_path: Path, dest_root: Path) -> None:
+    if source_path.is_dir():
+        for entry in source_path.iterdir():
+            dest = dest_root / entry.name
+            if entry.is_dir():
+                shutil.copytree(entry, dest)
+            else:
+                shutil.copy2(entry, dest)
+        return
+    shutil.copy2(source_path, dest_root / source_path.name)
+
+
+def _clone_repo_for_update(repo: str, repo_name: str, clone_dir: Path) -> None:
+    credentials = detect_publish_credentials()
+    if credentials.gh_authenticated:
+        try:
+            _run_publish_command(["gh", "repo", "clone", repo_name, str(clone_dir)])
+            return
+        except PublishError as exc:
+            logger.warning(
+                "GitHub CLI clone failed for %s, falling back to git clone: %s", repo, exc
+            )
+
+    _run_publish_command(["git", "clone", _repo_clone_url(repo), str(clone_dir)])
+
+
+def _maybe_update_repo_description(repo_name: str, description: str) -> None:
+    if not repo_name or shutil.which("gh") is None:
+        return
+    try:
+        _run_publish_command(["gh", "repo", "edit", repo_name, "--description", description])
+    except PublishError as exc:
+        logger.warning("Could not update GitHub repository description for %s: %s", repo_name, exc)
 
 
 def _clear_repo_worktree(repo_dir: Path) -> None:

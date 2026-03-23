@@ -23,6 +23,8 @@ def run(source: str, force_overwrite: bool = False, scope: str = "auto") -> None
         "Target platforms", cfg.get("platforms", list(config.PLATFORMS.keys()))
     )
 
+    failures: list[str] = []
+
     for resolved_source in sources:
         ui.info(f"Fetching from {resolved_source}...")
         try:
@@ -32,25 +34,40 @@ def run(source: str, force_overwrite: bool = False, scope: str = "auto") -> None
             raise SystemExit(1)
 
         try:
-            default_name = _default_skill_name(fetched_dir)
-            while True:
-                name = ui.ask("Skill name", default=default_name)
+            fetched_skills = _resolve_fetched_skills(
+                fetched_dir,
+                source=resolved_source,
+                remote_type=remote_type,
+            )
+            for skill_dir, skill_source in fetched_skills:
                 try:
-                    name = store.validate_skill_name(name)
-                    break
-                except ValueError as ve:
-                    ui.warn(str(ve))
-            name = _resolve_existing_name(name, force_overwrite=force_overwrite, scope=scope)
-            store.cook(name, fetched_dir, resolved_source, remote_type, platforms, scope=scope)
+                    default_name = _default_skill_name(skill_dir)
+                    while True:
+                        name = ui.ask("Skill name", default=default_name)
+                        try:
+                            name = store.validate_skill_name(name)
+                            break
+                        except ValueError as ve:
+                            ui.warn(str(ve))
+                    name = _resolve_existing_name(
+                        name, force_overwrite=force_overwrite, scope=scope
+                    )
+                    store.cook(name, skill_dir, skill_source, remote_type, platforms, scope=scope)
+                    ui.success(f"Cooked [bold]{name}[/bold]!")
+                    for p in platforms:
+                        ui.info(f"Symlinked → {config.platform_skill_dir(p) / name}")
+                except Exception as e:
+                    failures.append(f"{skill_source}: {e}")
+                    ui.error(f"Failed to cook skill from {skill_source}: {e}")
         except Exception as e:
             ui.error(f"Failed to cook skill: {e}")
             raise SystemExit(1)
         finally:
             cleanup_fetched(fetched_dir)
 
-        ui.success(f"Cooked [bold]{name}[/bold]!")
-        for p in platforms:
-            ui.info(f"Symlinked → {config.platform_skill_dir(p) / name}")
+    if failures:
+        ui.error(f"Cook completed with {len(failures)} failure{'s' if len(failures) != 1 else ''}.")
+        raise SystemExit(1)
 
 
 def _resolve_sources_for_cook(source: str) -> list[str]:
@@ -70,6 +87,9 @@ def _resolve_sources_for_cook(source: str) -> list[str]:
         "Multiple local skills found. Which should be cooked?",
         labels,
     )
+    if not selected_labels:
+        ui.info("Cook canceled.")
+        raise SystemExit(1)
     selected = [candidates[labels.index(label)] for label in selected_labels]
     return [str(path.parent) for path in selected]
 
@@ -91,6 +111,48 @@ def _default_skill_name(fetched_dir: Path) -> str:
                 return parsed_name
             break
     return default_name
+
+
+def _resolve_fetched_skills(
+    fetched_dir: Path,
+    *,
+    source: str,
+    remote_type: str,
+) -> list[tuple[Path, str]]:
+    candidates = remote.local_skill_candidates(str(fetched_dir))
+    if not candidates:
+        raise ValueError("No SKILL.md files found in fetched source")
+
+    if len(candidates) == 1:
+        candidate_dir = candidates[0].parent
+        rel_path = candidate_dir.relative_to(fetched_dir)
+        return [
+            (
+                candidate_dir,
+                remote.derive_child_source(source, remote_type=remote_type, rel_path=rel_path),
+            )
+        ]
+
+    labels = [str(candidate.parent.relative_to(fetched_dir)) for candidate in candidates]
+    selected_labels = ui.multi_choose(
+        "Multiple skills found. Which should be cooked?",
+        labels,
+    )
+    if not selected_labels:
+        ui.info("Cook canceled.")
+        raise SystemExit(1)
+    selected = [candidates[labels.index(label)] for label in selected_labels]
+    return [
+        (
+            candidate.parent,
+            remote.derive_child_source(
+                source,
+                remote_type=remote_type,
+                rel_path=candidate.parent.relative_to(fetched_dir),
+            ),
+        )
+        for candidate in selected
+    ]
 
 
 def _resolve_existing_name(name: str, *, force_overwrite: bool, scope: str = "auto") -> str:
