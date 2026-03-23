@@ -12,7 +12,8 @@ typecheck:
 check: test lint typecheck
 
 build:
-	uv build --clear
+	rm -rf dist
+	uv build
 
 release: check build
 	@TOKEN=$$(python3 -c 'import configparser, pathlib; cfg = configparser.RawConfigParser(); cfg.read(pathlib.Path.home() / ".pypirc"); print(cfg.get("pypi", "password", fallback=""), end="")' 2>/dev/null); \
